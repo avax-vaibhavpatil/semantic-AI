@@ -1,0 +1,8 @@
+# This directory contains generated semantic layer files
+# Files in this directory:
+# - metadata.json (from manifest_reader.py)
+# - inferred.json (from inference_engine.py)
+# - semantic.json (from semantic_generator.py)
+
+
+
