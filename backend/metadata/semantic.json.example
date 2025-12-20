@@ -1,0 +1,121 @@
+{
+  "tables": {
+    "branch_sales_wide": {
+      "description": "Wide table containing branch sales data with dimensions and measures",
+      "columns": {
+        "branch_id": {
+          "type": "dimension"
+        },
+        "branch_name": {
+          "type": "dimension"
+        },
+        "branch_city": {
+          "type": "dimension"
+        },
+        "branch_region": {
+          "type": "dimension"
+        },
+        "invoice_id": {
+          "type": "dimension"
+        },
+        "invoice_date": {
+          "type": "date"
+        },
+        "invoice_amount": {
+          "type": "measure"
+        },
+        "amount_paid": {
+          "type": "measure"
+        },
+        "discount_amount": {
+          "type": "measure"
+        },
+        "tax_amount": {
+          "type": "measure"
+        },
+        "product_category": {
+          "type": "dimension"
+        },
+        "customer_type": {
+          "type": "dimension"
+        }
+      },
+      "dimensions": [
+        "branch_id",
+        "branch_name",
+        "branch_city",
+        "branch_region",
+        "invoice_id",
+        "product_category",
+        "customer_type"
+      ],
+      "measures": [
+        "invoice_amount",
+        "amount_paid",
+        "discount_amount",
+        "tax_amount"
+      ],
+      "time_columns": [
+        "invoice_date"
+      ],
+      "derived_measures": [
+        {
+          "name": "total_revenue",
+          "expression": "SUM(invoice_amount)",
+          "type": "sum",
+          "description": "Total invoice amount across all records"
+        },
+        {
+          "name": "total_paid",
+          "expression": "SUM(amount_paid)",
+          "type": "sum",
+          "description": "Total amount paid"
+        },
+        {
+          "name": "avg_invoice",
+          "expression": "AVG(invoice_amount)",
+          "type": "avg",
+          "description": "Average invoice amount"
+        },
+        {
+          "name": "paid_ratio",
+          "expression": "SUM(amount_paid) / NULLIF(SUM(invoice_amount), 0)",
+          "type": "ratio",
+          "description": "Fraction of invoice amount that has been paid"
+        },
+        {
+          "name": "discount_pct",
+          "expression": "SUM(discount_amount) / NULLIF(SUM(invoice_amount), 0)",
+          "type": "ratio",
+          "description": "Discount as percentage of total invoice amount"
+        },
+        {
+          "name": "net_revenue",
+          "expression": "SUM(invoice_amount - discount_amount)",
+          "type": "sum",
+          "description": "Revenue after discounts"
+        }
+      ],
+      "quality_rules": [
+        {
+          "name": "underpaid_flag",
+          "expression": "CASE WHEN amount_paid < 0.5 * invoice_amount THEN 1 ELSE 0 END",
+          "description": "Flag for invoices where less than 50% has been paid"
+        },
+        {
+          "name": "high_discount_flag",
+          "expression": "CASE WHEN discount_amount > 0.3 * invoice_amount THEN 1 ELSE 0 END",
+          "description": "Flag for invoices with discount greater than 30%"
+        },
+        {
+          "name": "invalid_amount_flag",
+          "expression": "CASE WHEN invoice_amount <= 0 THEN 1 ELSE 0 END",
+          "description": "Flag for invalid invoice amounts (zero or negative)"
+        }
+      ]
+    }
+  }
+}
+
+
+
