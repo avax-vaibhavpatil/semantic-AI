@@ -16,6 +16,16 @@ Welcome to the Auto Semantic Project documentation! This index helps you find th
 | [SEMANTIC_LAYER_GUIDE.md](SEMANTIC_LAYER_GUIDE.md) | Learn how to create and customize semantic layers | Setting up your data model |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Guidelines for contributing code | Want to contribute |
 
+## 🚀 Production Readiness Guides
+
+| Document | Purpose | When to Read |
+|----------|---------|--------------|
+| [PRODUCTION_READINESS_GUIDE.md](PRODUCTION_READINESS_GUIDE.md) | **Beginner-friendly guide** to making project production-ready | Understanding what needs to be fixed and why |
+| [CRITICAL_ISSUES_SUMMARY.md](CRITICAL_ISSUES_SUMMARY.md) | Quick reference of critical issues | Quick overview of problems |
+| [ARCHITECTURE_COMPARISON.md](ARCHITECTURE_COMPARISON.md) | Visual before/after architecture comparison | Understanding the refactoring visually |
+| [PRODUCTION_REFACTORING_PLAN.md](PRODUCTION_REFACTORING_PLAN.md) | Technical refactoring plan with detailed steps | Planning the refactoring |
+| [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md) | Quick summary of refactoring plan | Quick overview of refactoring |
+
 ## 📋 Quick Reference
 
 ### For First-Time Users
@@ -35,6 +45,12 @@ Welcome to the Auto Semantic Project documentation! This index helps you find th
 2. Review [CONTRIBUTING.md](CONTRIBUTING.md)
 3. Check project structure
 4. Set up development environment
+
+### For Making It Production-Ready
+1. **Start here**: [PRODUCTION_READINESS_GUIDE.md](PRODUCTION_READINESS_GUIDE.md) - Complete beginner-friendly guide
+2. **Quick overview**: [CRITICAL_ISSUES_SUMMARY.md](CRITICAL_ISSUES_SUMMARY.md) - Top issues at a glance
+3. **Visual understanding**: [ARCHITECTURE_COMPARISON.md](ARCHITECTURE_COMPARISON.md) - See before/after
+4. **Technical details**: [PRODUCTION_REFACTORING_PLAN.md](PRODUCTION_REFACTORING_PLAN.md) - Detailed plan
 
 ## 📁 Configuration Files
 
@@ -105,6 +121,14 @@ Welcome to the Auto Semantic Project documentation! This index helps you find th
 **...add a new feature**
 → Read [CONTRIBUTING.md](CONTRIBUTING.md)
 
+**...make it production-ready**
+→ Read [PRODUCTION_READINESS_GUIDE.md](PRODUCTION_READINESS_GUIDE.md) (start here!)
+→ Quick reference: [CRITICAL_ISSUES_SUMMARY.md](CRITICAL_ISSUES_SUMMARY.md)
+
+**...understand current issues**
+→ Read [CRITICAL_ISSUES_SUMMARY.md](CRITICAL_ISSUES_SUMMARY.md)
+→ See visual comparison: [ARCHITECTURE_COMPARISON.md](ARCHITECTURE_COMPARISON.md)
+
 **...troubleshoot an issue**
 → Check [README.md](README.md) Troubleshooting section
 
@@ -150,6 +174,8 @@ This documentation was created to help you understand and use the Auto Semantic 
 ---
 
 **Start here:** [QUICKSTART.md](QUICKSTART.md) → [README.md](README.md) → [SEMANTIC_LAYER_GUIDE.md](SEMANTIC_LAYER_GUIDE.md)
+
+**Making it production-ready?** Start with [PRODUCTION_READINESS_GUIDE.md](PRODUCTION_READINESS_GUIDE.md)
 
 
 
