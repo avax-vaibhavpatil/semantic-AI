@@ -36,6 +36,11 @@ class ReportAccessDeniedError(DomainException):
     pass
 
 
+class UnauthorizedAccessError(DomainException):
+    """Raised when user tries to access/modify resource they don't own"""
+    pass
+
+
 class SemanticLayerError(DomainException):
     """Raised when semantic layer operations fail"""
     pass

@@ -144,4 +144,41 @@ class SemanticLayer:
             )
         
         return cls(tables=tables)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Convert SemanticLayer back to dictionary (e.g., for JSON serialization)
+        
+        This is useful when we need to send semantic layer to AI as context.
+        """
+        return {
+            "tables": {
+                table_name: {
+                    "description": table.description,
+                    "columns": {
+                        col_name: {
+                            "type": col.type,
+                            "description": col.description,
+                            "role": col.role,
+                            "preferred": col.preferred
+                        }
+                        for col_name, col in table.columns.items()
+                    },
+                    "dimensions": table.dimensions,
+                    "measures": table.measures,
+                    "time_columns": table.time_columns,
+                    "derived_measures": [
+                        {
+                            "name": dm.name,
+                            "expression": dm.expression,
+                            "type": dm.type,
+                            "description": dm.description
+                        }
+                        for dm in table.derived_measures
+                    ],
+                    "quality_rules": table.quality_rules
+                }
+                for table_name, table in self.tables.items()
+            }
+        }
 
