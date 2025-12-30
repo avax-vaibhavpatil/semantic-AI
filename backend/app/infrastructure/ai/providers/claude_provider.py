@@ -15,6 +15,7 @@ class ClaudeProvider(AIProvider):
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         # Default to Haiku (available on more tiers) to avoid 404s
+        # CRITICAL: Use Haiku model that works with the API key
         self.model = model or os.environ.get("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
         self.client = None
         if self.api_key:

@@ -96,86 +96,118 @@ class AsyncReportRepository(ReportRepository):
     # READ
     # --------------------------------------------------------------------- #
     async def get_report(self, report_id: int, user_id: str) -> Optional[Report]:
-        rows = await execute_query(
-            f"""
-            SELECT *
-            FROM {self.table_full}
-            WHERE report_id = :report_id AND user_id = :user_id AND status != :deleted
-            """,
-            engine=self.engine,
-            max_rows=1,
-        )
-        if not rows:
-            return None
-        return _row_to_report(rows[0])
+        """Get a single report by ID and user_id."""
+        async with self.engine.connect() as conn:
+            result = await conn.execute(
+                text(f"""
+                    SELECT *
+                    FROM {self.table_full}
+                    WHERE report_id = :report_id AND user_id = :user_id AND status != :deleted
+                    LIMIT 1
+                """),
+                {
+                    "report_id": report_id,
+                    "user_id": user_id,
+                    "deleted": REPORT_STATUS_DELETED,
+                },
+            )
+            row = result.fetchone()
+            if not row:
+                return None
+            return _row_to_report(dict(row._mapping))
 
     async def list_reports(
         self, user_id: str, limit: int = 20, offset: int = 0
     ) -> Tuple[List[Report], int]:
-        rows = await execute_query(
-            f"""
-            SELECT *
-            FROM {self.table_full}
-            WHERE user_id = :user_id AND status != :deleted
-            ORDER BY created_at DESC
-            LIMIT :limit OFFSET :offset
-            """,
-            engine=self.engine,
-            max_rows=limit,
-        )
-        reports = [_row_to_report(r) for r in rows]
-
-        total_rows = await execute_query(
-            f"""
-            SELECT COUNT(*) as total
-            FROM {self.table_full}
-            WHERE user_id = :user_id AND status != :deleted
-            """,
-            engine=self.engine,
-            max_rows=1,
-        )
-        total = total_rows[0]["total"] if total_rows else 0
-        return reports, total
+        """List reports for a user with pagination."""
+        async with self.engine.connect() as conn:
+            # Get total count
+            count_result = await conn.execute(
+                text(f"""
+                    SELECT COUNT(*) as total
+                    FROM {self.table_full}
+                    WHERE user_id = :user_id AND status != :deleted
+                """),
+                {"user_id": user_id, "deleted": REPORT_STATUS_DELETED},
+            )
+            total = count_result.scalar_one()
+            
+            # Get reports
+            result = await conn.execute(
+                text(f"""
+                    SELECT *
+                    FROM {self.table_full}
+                    WHERE user_id = :user_id AND status != :deleted
+                    ORDER BY created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """),
+                {
+                    "user_id": user_id,
+                    "deleted": REPORT_STATUS_DELETED,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+            rows = [dict(row._mapping) for row in result]
+            reports = [_row_to_report(r) for r in rows]
+            
+            return reports, total
 
     async def search_reports(
         self, user_id: str, query: str, limit: int = 20, offset: int = 0
     ) -> Tuple[List[Report], int]:
-        rows = await execute_query(
-            f"""
-            SELECT *
-            FROM {self.table_full}
-            WHERE user_id = :user_id
-              AND status != :deleted
-              AND (
-                    report_name ILIKE :q
-                 OR user_question ILIKE :q
-                 OR COALESCE(report_description, '') ILIKE :q
-              )
-            ORDER BY created_at DESC
-            LIMIT :limit OFFSET :offset
-            """,
-            engine=self.engine,
-            max_rows=limit,
-        )
-        reports = [_row_to_report(r) for r in rows]
-
-        total_rows = await execute_query(
-            f"""
-            SELECT COUNT(*) as total
-            FROM {self.table_full}
-            WHERE user_id = :user_id
-              AND status != :deleted
-              AND (
-                    report_name ILIKE :q
-                 OR user_question ILIKE :q
-                 OR COALESCE(report_description, '') ILIKE :q
-              )
-            """,
-            engine=self.engine,
-            max_rows=1,
-        )
-        total = total_rows[0]["total"] if total_rows else 0
-        return reports, total
+        """Search reports by name, question, or description."""
+        search_pattern = f"%{query}%"
+        
+        async with self.engine.connect() as conn:
+            # Get total count
+            count_result = await conn.execute(
+                text(f"""
+                    SELECT COUNT(*) as total
+                    FROM {self.table_full}
+                    WHERE user_id = :user_id
+                      AND status != :deleted
+                      AND (
+                            report_name ILIKE :q
+                         OR user_question ILIKE :q
+                         OR COALESCE(report_description, '') ILIKE :q
+                      )
+                """),
+                {
+                    "user_id": user_id,
+                    "deleted": REPORT_STATUS_DELETED,
+                    "q": search_pattern,
+                },
+            )
+            total = count_result.scalar_one()
+            
+            # Get reports
+            result = await conn.execute(
+                text(f"""
+                    SELECT *
+                    FROM {self.table_full}
+                    WHERE user_id = :user_id
+                      AND status != :deleted
+                      AND (
+                            report_name ILIKE :q
+                         OR user_question ILIKE :q
+                         OR COALESCE(report_description, '') ILIKE :q
+                      )
+                    ORDER BY created_at DESC
+                    LIMIT :limit OFFSET :offset
+                """),
+                {
+                    "user_id": user_id,
+                    "deleted": REPORT_STATUS_DELETED,
+                    "q": search_pattern,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+            rows = [dict(row._mapping) for row in result]
+            reports = [_row_to_report(r) for r in rows]
+            
+            return reports, total
 
     # --------------------------------------------------------------------- #
     # UPDATE
@@ -208,6 +240,7 @@ class AsyncReportRepository(ReportRepository):
                     "updated_at": datetime.utcnow(),
                     "report_id": report_id,
                     "user_id": user_id,
+                    "deleted": REPORT_STATUS_DELETED,
                 },
             )
             return result.rowcount > 0

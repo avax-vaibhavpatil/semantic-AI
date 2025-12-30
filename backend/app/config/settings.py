@@ -77,6 +77,18 @@ class Settings(BaseSettings):
         default="groq",
         description="Preferred AI provider"
     )
+    ai_timeout_seconds: float = Field(
+        default=30.0,
+        ge=1.0,
+        le=300.0,
+        description="Timeout for AI provider calls (seconds)"
+    )
+    sql_timeout_seconds: float = Field(
+        default=60.0,
+        ge=1.0,
+        le=600.0,
+        description="Timeout for SQL query execution (seconds)"
+    )
     
     # Groq API (Fast, free tier available)
     groq_api_key: Optional[str] = Field(
@@ -104,8 +116,8 @@ class Settings(BaseSettings):
         description="Anthropic API key"
     )
     anthropic_model: str = Field(
-        default="claude-3-5-sonnet-20241022",
-        description="Anthropic model to use"
+        default="claude-3-haiku-20240307",
+        description="Anthropic model to use (default: Haiku for better compatibility)"
     )
     
     # ============================================================================
