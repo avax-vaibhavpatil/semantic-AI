@@ -50,6 +50,9 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 export default function Home() {
+  // User ID - in production, get from auth system
+  const USER_ID = "frontend_user_123";
+  
   const [question, setQuestion] = useState("");
   const [sql, setSql] = useState("");
   const [rows, setRows] = useState([]);
@@ -90,12 +93,12 @@ export default function Home() {
     setRows([]);
 
     try {
-      const res = await axios.post("http://localhost:8000/ask", {
+      const res = await axios.post("http://localhost:8000/api/v1/query", {
         question,
         max_rows: 500,
       });
 
-      setSql(res.data.sql);
+      setSql(res.data.query.sql);
       setRows(res.data.rows);
       setPage(0);
       if (res.data.warning) {
@@ -196,12 +199,14 @@ export default function Home() {
         .map(tag => tag.trim())
         .filter(tag => tag);
 
-      await axios.post("http://localhost:8000/reports/save", {
+      await axios.post("http://localhost:8000/api/v1/reports", {
         report_name: reportName,
         user_question: question,
         generated_sql: sql,
+        user_id: USER_ID,
         report_description: reportDescription || null,
-        tags: tagsArray
+        tags: tagsArray,
+        is_favorite: false
       });
 
       alert("Report saved successfully!");

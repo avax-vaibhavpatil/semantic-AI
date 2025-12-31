@@ -17,6 +17,7 @@ class Column:
     description: Optional[str] = None
     role: Optional[str] = None  # "name", "code", "id"
     preferred: bool = False
+    aliases: List[str] = field(default_factory=list)  # Alternative names for this column
     
     def is_dimension(self) -> bool:
         """Check if column is a dimension"""
@@ -119,7 +120,8 @@ class SemanticLayer:
                     type=col_data.get("type", "dimension"),
                     description=col_data.get("description"),
                     role=col_data.get("role"),
-                    preferred=col_data.get("preferred", False)
+                    preferred=col_data.get("preferred", False),
+                    aliases=col_data.get("aliases", [])  # Load aliases from JSON
                 )
             
             # Build derived measures
@@ -160,7 +162,8 @@ class SemanticLayer:
                             "type": col.type,
                             "description": col.description,
                             "role": col.role,
-                            "preferred": col.preferred
+                            "preferred": col.preferred,
+                            "aliases": col.aliases  # Include aliases so AI can use them
                         }
                         for col_name, col in table.columns.items()
                     },

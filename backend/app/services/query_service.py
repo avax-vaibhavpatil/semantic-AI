@@ -214,9 +214,19 @@ Rules:
 - Use proper SQL syntax
 - Add LIMIT clause if not present
 
+CRITICAL: USE SEMANTIC LAYER ALIASES:
+- Each column in the semantic layer has an "aliases" array with alternative names
+- ALWAYS match user's natural language terms to column aliases in the semantic layer
+- Example: If user says "salesman", find the column whose aliases include "salesperson" or "handler"
+- Example: If user says "customer", find the column whose aliases include "customer" or "client"
+- The semantic layer aliases are your PRIMARY way to map natural language to SQL columns
+- DO NOT guess column names - always use aliases from the semantic layer
+
 CRITICAL NULL HANDLING:
-- For "top N", "highest", "lowest", or any ORDER BY queries: ALWAYS filter NULLs on the sort column
-- When using ORDER BY with DESC, add: WHERE sort_column IS NOT NULL OR use NULLS LAST
+- For "top N", "highest", "lowest", or any ORDER BY queries: ALWAYS filter NULLs on the sort column in WHERE clause
+- Example: If ordering by sales DESC, use: WHERE sales IS NOT NULL ORDER BY sales DESC
+- NEVER put NULLS LAST in WHERE clause - it only belongs in ORDER BY clause
+- To handle NULLs in ORDER BY: ORDER BY column DESC NULLS LAST (not in WHERE clause)
 - Example for "top 3 by sales": 
   SELECT ... FROM table WHERE sales_column IS NOT NULL ORDER BY sales_column DESC LIMIT 3
 - This ensures meaningful data appears first, not NULL values
