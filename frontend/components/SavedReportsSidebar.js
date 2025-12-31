@@ -33,6 +33,9 @@ import axios from "axios";
 const DRAWER_WIDTH = 360;
 
 export default function SavedReportsSidebar({ open, onClose, onExecuteReport }) {
+  // User ID - in production, get from auth system
+  const USER_ID = "frontend_user_123";
+  
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -50,12 +53,13 @@ export default function SavedReportsSidebar({ open, onClose, onExecuteReport }) 
     setLoading(true);
     setError("");
     try {
-      const params = {};
-      if (filterFavorites) {
-        params.favorite_only = true;
-      }
+      const params = {
+        user_id: USER_ID,
+        limit: 50,
+        offset: 0
+      };
       
-      const res = await axios.get("http://localhost:8000/reports", { params });
+      const res = await axios.get("http://localhost:8000/api/v1/reports", { params });
       setReports(res.data.reports || []);
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to load reports");
@@ -72,8 +76,12 @@ export default function SavedReportsSidebar({ open, onClose, onExecuteReport }) 
     setLoading(true);
     setError("");
     try {
-      const res = await axios.get(`http://localhost:8000/reports/search`, {
-        params: { q: query, limit: 50 }
+      const res = await axios.get(`http://localhost:8000/api/v1/reports`, {
+        params: { 
+          user_id: USER_ID,
+          search: query, 
+          limit: 50 
+        }
       });
       setReports(res.data.reports || []);
     } catch (err) {
@@ -84,8 +92,10 @@ export default function SavedReportsSidebar({ open, onClose, onExecuteReport }) 
 
   const toggleFavorite = async (reportId, currentFavorite) => {
     try {
-      await axios.patch(`http://localhost:8000/reports/${reportId}`, {
+      await axios.put(`http://localhost:8000/api/v1/reports/${reportId}`, {
         is_favorite: !currentFavorite
+      }, {
+        params: { user_id: USER_ID }
       });
       
       // Update local state
@@ -103,7 +113,9 @@ export default function SavedReportsSidebar({ open, onClose, onExecuteReport }) 
     if (!confirm("Are you sure you want to delete this report?")) return;
     
     try {
-      await axios.delete(`http://localhost:8000/reports/${reportId}`);
+      await axios.delete(`http://localhost:8000/api/v1/reports/${reportId}`, {
+        params: { user_id: USER_ID }
+      });
       setReports(reports.filter(r => r.report_id !== reportId));
     } catch (err) {
       console.error("Failed to delete report:", err);
@@ -113,14 +125,16 @@ export default function SavedReportsSidebar({ open, onClose, onExecuteReport }) 
   const executeReport = async (report) => {
     try {
       const res = await axios.post(
-        `http://localhost:8000/reports/${report.report_id}/execute`
+        `http://localhost:8000/api/v1/reports/${report.report_id}/execute`,
+        { max_rows: 500 },
+        { params: { user_id: USER_ID } }
       );
       
       // Pass data back to parent component
       if (onExecuteReport) {
         onExecuteReport({
           reportName: report.report_name,
-          userQuestion: res.data.report.user_question,  // ← ADD THIS!
+          userQuestion: res.data.report.user_question,
           reportDescription: res.data.report.report_description,
           sql: res.data.report.generated_sql,
           rows: res.data.rows,
