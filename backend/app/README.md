@@ -1,5 +1,7 @@
 # App Directory Structure Explanation
 
+uvicorn app.api.main:app --host 0.0.0.0 --port 8000
+
 This document explains the purpose of each folder in the new modular structure.
 
 ## 📁 Folder Structure
