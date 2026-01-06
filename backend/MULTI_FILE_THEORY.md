@@ -229,3 +229,4 @@ SQL: SELECT * FROM public.stock_planning_data LIMIT 100
 
 **Bottom line:** For 3-4 files, a simple multi-file repository that loads and merges all files will work perfectly. No need for complex indexing or smart selection.
 
+

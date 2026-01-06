@@ -193,3 +193,4 @@ AI receives merged layer with **both** tables:
 - ✅ Can switch back if needed
 - ✅ Settings still support `semantic_json_path` (for single-file mode)
 
+
