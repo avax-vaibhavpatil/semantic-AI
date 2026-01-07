@@ -10,7 +10,7 @@ CRITICAL: Prevents creating heavy objects (repositories, AI providers) on every 
 from typing import Optional
 from app.services.query_service import QueryService
 from app.services.report_service import ReportService
-from app.repositories.semantic_repository import MultiFileSemanticRepository
+from app.repositories.semantic_repository import FileSemanticRepository
 from app.repositories.report_repository import AsyncReportRepository
 from app.infrastructure.ai.router import ProviderRouter
 from app.infrastructure.ai.providers.claude_provider import ClaudeProvider
@@ -40,9 +40,8 @@ def initialize_services() -> None:
     logger.info("Initializing services at startup...")
     
     # Initialize repositories (lightweight, can be reused)
-    # Use MultiFileSemanticRepository to load all JSON files from metadata/
-    semantic_repo = MultiFileSemanticRepository()
-    logger.debug("MultiFileSemanticRepository initialized")
+    semantic_repo = FileSemanticRepository()
+    logger.debug("SemanticRepository initialized")
     
     report_repo = AsyncReportRepository()
     logger.debug("ReportRepository initialized")
