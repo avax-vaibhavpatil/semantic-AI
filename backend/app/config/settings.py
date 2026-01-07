@@ -125,12 +125,7 @@ class Settings(BaseSettings):
     # ============================================================================
     semantic_json_path: str = Field(
         default="backend/metadata/semantic.json",
-        description="Path to semantic layer JSON file (for single-file mode)"
-    )
-    semantic_dir: Optional[str] = Field(
-        default=None,
-        description="Path to directory containing semantic JSON files (for multi-file mode). "
-                   "If None, defaults to backend/metadata/"
+        description="Path to semantic layer JSON file"
     )
     
     # ============================================================================

@@ -1,0 +1,772 @@
+{
+  "tables": {
+    "public.stock_planning_data": {
+      "metadata": {
+        "version": "1.0",
+        "owner": "data_analytics_team",
+        "description": "Column-centric, AI-optimized semantic layer for stock planning and inventory analytics",
+        "last_updated": "2026-01-02",
+        "verified": true,
+        "column_count": 50
+      },
+      "model": {
+        "grain": "item_location_day",
+        "grain_description": "One row represents one item in one branch/location on one snapshot date"
+      },
+      "description": "Stock planning and inventory control metrics by item and location. Contains planned stock quantities, reorder levels, safety stock, inventory coverage metrics, pending orders, stock transfers, and quality breakdowns.",
+      "columns": {
+        "spd_date": {
+          "type": "date",
+          "description": "Snapshot date for stock planning data",
+          "aliases": [
+            "date",
+            "stock_date",
+            "planning_date",
+            "snapshot_date"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_company_code": {
+          "type": "dimension",
+          "description": "Company identifier",
+          "role": "code",
+          "preferred": true,
+          "aliases": [
+            "company",
+            "company_code",
+            "comp_code"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_siscon_code": {
+          "type": "dimension",
+          "description": "System code for making connection with branch code to create unique identity",
+          "role": "code",
+          "aliases": [
+            "siscon",
+            "system_code",
+            "siscon_code"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_branch_code": {
+          "type": "dimension",
+          "description": "Branch where stock is located",
+          "role": "code",
+          "aliases": [
+            "branch",
+            "branch_code",
+            "location",
+            "branch_location"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_item_code": {
+          "type": "dimension",
+          "description": "Unique item identifier",
+          "role": "code",
+          "preferred": true,
+          "aliases": [
+            "item",
+            "item_code",
+            "product",
+            "product_code",
+            "sku"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_make": {
+          "type": "dimension",
+          "description": "Manufacturer or make of item",
+          "aliases": [
+            "make",
+            "brand",
+            "manufacturer"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_itmain_group": {
+          "type": "dimension",
+          "description": "Main product group",
+          "aliases": [
+            "main_group",
+            "product_group",
+            "main_product_group"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_itsub_group": {
+          "type": "dimension",
+          "description": "Sub product group",
+          "aliases": [
+            "sub_group",
+            "sub_product_group",
+            "product_sub_group"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_catref_no": {
+          "type": "dimension",
+          "description": "Catalog reference number which are join with make to make unique identity number product",
+          "aliases": [
+            "catalog_reference",
+            "cat_ref",
+            "catalog_ref_no"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_ica_category": {
+          "type": "dimension",
+          "description": "ICA category classification",
+          "aliases": [
+            "ica_category",
+            "ica"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_icb_category": {
+          "type": "dimension",
+          "description": "ICB category classification",
+          "aliases": [
+            "icb_category",
+            "icb"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "spd_list_price": {
+          "type": "measure",
+          "description": "List price value of item stock",
+          "aliases": [
+            "list_price",
+            "price",
+            "price_value",
+            "item_price"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_pkglot": {
+          "type": "measure",
+          "description": "Package lot quantity",
+          "aliases": [
+            "package_lot",
+            "pkg_lot",
+            "package_qty"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_stock_level": {
+          "type": "measure",
+          "description": "Current available stock quantity",
+          "aliases": [
+            "stock",
+            "inventory",
+            "closing_stock",
+            "stock_quantity",
+            "on_hand"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_reorder_level": {
+          "type": "measure",
+          "description": "Reorder threshold quantity",
+          "aliases": [
+            "reorder_level",
+            "reorder_point",
+            "min_stock",
+            "minimum_stock"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_drum_level": {
+          "type": "measure",
+          "description": "Drum stock level",
+          "aliases": [
+            "drum_stock",
+            "drum_level"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_gp": {
+          "type": "measure",
+          "description": "Gross profit value",
+          "aliases": [
+            "gross_profit",
+            "gp",
+            "profit"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_issue_avg": {
+          "type": "measure",
+          "description": "Average issue quantity",
+          "aliases": [
+            "issue_avg",
+            "average_issue",
+            "avg_issue"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_pts_avg": {
+          "type": "measure",
+          "description": "Average PTS value",
+          "aliases": [
+            "pts_avg",
+            "average_pts",
+            "avg_pts"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_ao_pending_st": {
+          "type": "measure",
+          "description": "AO pending stock quantity",
+          "aliases": [
+            "ao_pending_stock",
+            "ao_pending",
+            "pending_ao_stock"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_ao_pending_dd": {
+          "type": "measure",
+          "description": "AO pending DD quantity",
+          "aliases": [
+            "ao_pending_dd",
+            "pending_ao_dd"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_ao_pending_di": {
+          "type": "measure",
+          "description": "AO pending DI quantity",
+          "aliases": [
+            "ao_pending_di",
+            "pending_ao_di"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_po_pending_st": {
+          "type": "measure",
+          "description": "PO pending stock quantity",
+          "aliases": [
+            "po_pending_stock",
+            "po_pending",
+            "pending_po_stock"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_po_pending_dd": {
+          "type": "measure",
+          "description": "PO pending DD quantity",
+          "aliases": [
+            "po_pending_dd",
+            "pending_po_dd"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_po_pending_di": {
+          "type": "measure",
+          "description": "PO pending DI quantity",
+          "aliases": [
+            "po_pending_di",
+            "pending_po_di"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_drum_qty": {
+          "type": "measure",
+          "description": "Drum stock quantity",
+          "aliases": [
+            "drum_qty",
+            "drum_quantity"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_good_qty": {
+          "type": "measure",
+          "description": "Good quality stock quantity",
+          "aliases": [
+            "good_stock",
+            "good_quantity",
+            "good_qty"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_cut_qty": {
+          "type": "measure",
+          "description": "Cut stock quantity",
+          "aliases": [
+            "cut_stock",
+            "cut_quantity",
+            "cut_qty"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_small_qty": {
+          "type": "measure",
+          "description": "Small stock quantity",
+          "aliases": [
+            "small_stock",
+            "small_quantity",
+            "small_qty"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_scrap_qty": {
+          "type": "measure",
+          "description": "Scrap stock quantity",
+          "aliases": [
+            "scrap_stock",
+            "scrap_quantity",
+            "scrap_qty"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_drum_perc": {
+          "type": "measure",
+          "description": "Percentage of drum stock",
+          "aliases": [
+            "drum_percentage",
+            "drum_pct"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_good_perc": {
+          "type": "measure",
+          "description": "Percentage of good stock",
+          "aliases": [
+            "good_percentage",
+            "good_pct"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_cut_perc": {
+          "type": "measure",
+          "description": "Percentage of cut stock",
+          "aliases": [
+            "cut_percentage",
+            "cut_pct"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_small_perc": {
+          "type": "measure",
+          "description": "Percentage of small stock",
+          "aliases": [
+            "small_percentage",
+            "small_pct"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_scrap_perc": {
+          "type": "measure",
+          "description": "Percentage of scrap stock",
+          "aliases": [
+            "scrap_percentage",
+            "scrap_pct"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_branch_transfer_out": {
+          "type": "measure",
+          "description": "Stock transferred out to other branches",
+          "aliases": [
+            "branch_transfer_out",
+            "transfer_out",
+            "outgoing_transfer"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_stk_transfer_in": {
+          "type": "measure",
+          "description": "Stock transferred into branch",
+          "aliases": [
+            "stock_transfer_in",
+            "transfer_in",
+            "incoming_transfer"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_draft_intransit_qty": {
+          "type": "measure",
+          "description": "Draft or in-transit stock quantity",
+          "aliases": [
+            "intransit_stock",
+            "in_transit",
+            "draft_qty"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_abv_6mths": {
+          "type": "measure",
+          "description": "Stock quantity aged above six months",
+          "aliases": [
+            "old_stock",
+            "aged_stock",
+            "slow_moving_stock",
+            "above_6_months"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_di_stock": {
+          "type": "measure",
+          "description": "DI category stock quantity",
+          "aliases": [
+            "di_stock",
+            "di_quantity"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_issue_avg3": {
+          "type": "measure",
+          "description": "3-month rolling average issue quantity",
+          "aliases": [
+            "issue_avg_3m",
+            "avg_issue_3months"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_issue_avg6": {
+          "type": "measure",
+          "description": "6-month rolling average issue quantity",
+          "aliases": [
+            "issue_avg_6m",
+            "avg_issue_6months"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_issue_avg9": {
+          "type": "measure",
+          "description": "9-month rolling average issue quantity",
+          "aliases": [
+            "issue_avg_9m",
+            "avg_issue_9months"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_issue_avg12": {
+          "type": "measure",
+          "description": "12-month rolling average issue quantity",
+          "aliases": [
+            "issue_avg_12m",
+            "avg_issue_12months",
+            "yearly_avg_issue"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_pts_avg3": {
+          "type": "measure",
+          "description": "3-month rolling average PTS",
+          "aliases": [
+            "pts_avg_3m",
+            "avg_pts_3months"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_pts_avg6": {
+          "type": "measure",
+          "description": "6-month rolling average PTS",
+          "aliases": [
+            "pts_avg_6m",
+            "avg_pts_6months"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_pts_avg9": {
+          "type": "measure",
+          "description": "9-month rolling average PTS",
+          "aliases": [
+            "pts_avg_9m",
+            "avg_pts_9months"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_pts_avg12": {
+          "type": "measure",
+          "description": "12-month rolling average PTS",
+          "aliases": [
+            "pts_avg_12m",
+            "avg_pts_12months",
+            "yearly_avg_pts"
+          ],
+          "aggregation": "avg",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_no_of_challans": {
+          "type": "measure",
+          "description": "Number of challans",
+          "aliases": [
+            "challans",
+            "challan_count",
+            "number_of_challans"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        },
+        "spd_no_parties": {
+          "type": "measure",
+          "description": "Number of parties involved",
+          "aliases": [
+            "parties",
+            "party_count",
+            "number_of_parties"
+          ],
+          "aggregation": "sum",
+          "constraints": {
+            "filterable": false,
+            "groupable": false
+          }
+        }
+      },
+      "dimensions": [
+        "spd_company_code",
+        "spd_siscon_code",
+        "spd_branch_code",
+        "spd_item_code",
+        "spd_make",
+        "spd_itmain_group",
+        "spd_itsub_group",
+        "spd_catref_no",
+        "spd_ica_category",
+        "spd_icb_category"
+      ],
+      "measures": [
+        "spd_list_price",
+        "spd_pkglot",
+        "spd_stock_level",
+        "spd_reorder_level",
+        "spd_drum_level",
+        "spd_gp",
+        "spd_issue_avg",
+        "spd_pts_avg",
+        "spd_ao_pending_st",
+        "spd_ao_pending_dd",
+        "spd_ao_pending_di",
+        "spd_po_pending_st",
+        "spd_po_pending_dd",
+        "spd_po_pending_di",
+        "spd_drum_qty",
+        "spd_good_qty",
+        "spd_cut_qty",
+        "spd_small_qty",
+        "spd_scrap_qty",
+        "spd_drum_perc",
+        "spd_good_perc",
+        "spd_cut_perc",
+        "spd_small_perc",
+        "spd_scrap_perc",
+        "spd_branch_transfer_out",
+        "spd_stk_transfer_in",
+        "spd_draft_intransit_qty",
+        "spd_abv_6mths",
+        "spd_di_stock",
+        "spd_issue_avg3",
+        "spd_issue_avg6",
+        "spd_issue_avg9",
+        "spd_issue_avg12",
+        "spd_pts_avg3",
+        "spd_pts_avg6",
+        "spd_pts_avg9",
+        "spd_pts_avg12",
+        "spd_no_of_challans",
+        "spd_no_parties"
+      ],
+      "time_columns": [
+        "spd_date"
+      ]
+    }
+  }
+}

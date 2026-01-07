@@ -102,27 +102,6 @@ class SemanticLayer:
             return False
         return table.has_column(column_name)
     
-    def merge(self, other: "SemanticLayer") -> "SemanticLayer":
-        """
-        Merge another SemanticLayer into this one.
-        
-        Combines all tables from both semantic layers.
-        If a table exists in both, the other layer's table takes precedence.
-        
-        Args:
-            other: Another SemanticLayer to merge into this one
-            
-        Returns:
-            New SemanticLayer with all tables from both layers
-            
-        Example:
-            layer1 = SemanticLayer.from_dict(data1)
-            layer2 = SemanticLayer.from_dict(data2)
-            merged = layer1.merge(layer2)  # Contains tables from both
-        """
-        merged_tables = {**self.tables, **other.tables}
-        return SemanticLayer(tables=merged_tables)
-    
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SemanticLayer":
         """
