@@ -1,0 +1,427 @@
+{
+    "tables": {
+      "public.stock_gw": {
+        "metadata": {
+          "version": "1.1",
+          "owner": "data_analytics_team",
+          "description": "Column-centric, AI-optimized semantic layer for stock gateway ageing, valuation, quality, and sales analytics",
+          "last_updated": "2026-01-07",
+          "verified": true,
+          "column_count": 56
+        },
+  
+        "model": {
+          "grain": "item_godown_branch_day",
+          "grain_description": "One row represents one item at one godown and branch on one snapshot date"
+        },
+  
+        "description": "Stock gateway table containing ageing-wise stock quantities, values, NOS counts, quality breakdowns, sales metrics, profit/loss, and stock valuation by item, branch, godown, and date.",
+  
+        "columns": {
+          "stgw_date": {
+            "type": "date",
+            "description": "Snapshot date for stock gateway data",
+            "aliases": ["date", "gateway_date", "stock_gateway_date", "snapshot_date"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_company_code": {
+            "type": "dimension",
+            "description": "Company identifier",
+            "aliases": ["company", "company_code", "org_code", "business_unit"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_branch_code": {
+            "type": "dimension",
+            "description": "Branch where stock is located",
+            "aliases": ["branch", "branch_code", "location", "branch_location"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_godown_code": {
+            "type": "dimension",
+            "description": "Godown or warehouse identifier",
+            "aliases": ["godown", "warehouse", "store", "storage_location"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_item_code": {
+            "type": "dimension",
+            "description": "Unique item identifier",
+            "aliases": ["item", "item_code", "product", "sku", "material_code"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_make": {
+            "type": "dimension",
+            "description": "Manufacturer or brand of item",
+            "aliases": ["make", "brand", "manufacturer", "item_brand"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_main_group": {
+            "type": "dimension",
+            "description": "Main item group",
+            "aliases": ["main_group", "product_group", "primary_group"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_sub_group": {
+            "type": "dimension",
+            "description": "Sub item group",
+            "aliases": ["sub_group", "product_sub_group", "secondary_group"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+  
+          "stgw_icaw_cat": {
+            "type": "dimension",
+            "description": "ICA warehouse category",
+            "aliases": ["ica_warehouse_category", "ica_wh_cat", "ica_warehouse_class"],
+            "aggregation": null
+          },
+  
+          "stgw_icbw_cat": {
+            "type": "dimension",
+            "description": "ICB warehouse category",
+            "aliases": ["icb_warehouse_category", "icb_wh_cat", "icb_warehouse_class"],
+            "aggregation": null
+          },
+  
+          "stgw_ica_cat": {
+            "type": "dimension",
+            "description": "ICA category",
+            "aliases": ["ica_category", "ica_cat", "ica_class"],
+            "aggregation": null
+          },
+  
+          "stgw_icb_cat": {
+            "type": "dimension",
+            "description": "ICB category",
+            "aliases": ["icb_category", "icb_cat", "icb_class"],
+            "aggregation": null
+          },
+  
+          "stgw_qty0_3m": {
+            "type": "measure",
+            "description": "Stock quantity aged 0–3 months",
+            "aliases": ["qty_0_3_months", "stock_0_3_months", "age_0_3_months_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_val0_3m": {
+            "type": "measure",
+            "description": "Stock value aged 0–3 months",
+            "aliases": ["value_0_3_months", "stock_value_0_3_months", "age_0_3_months_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_qty3_6m": {
+            "type": "measure",
+            "description": "Stock quantity aged 3–6 months",
+            "aliases": ["qty_3_6_months", "stock_3_6_months", "age_3_6_months_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_val3_6m": {
+            "type": "measure",
+            "description": "Stock value aged 3–6 months",
+            "aliases": ["value_3_6_months", "stock_value_3_6_months", "age_3_6_months_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_qty6m_1y": {
+            "type": "measure",
+            "description": "Stock quantity aged 6 months to 1 year",
+            "aliases": ["qty_6m_1y", "stock_6m_1y", "age_6m_1y_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_val6m_1y": {
+            "type": "measure",
+            "description": "Stock value aged 6 months to 1 year",
+            "aliases": ["value_6m_1y", "stock_value_6m_1y", "age_6m_1y_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_qty1y_2y": {
+            "type": "measure",
+            "description": "Stock quantity aged 1 to 2 years",
+            "aliases": ["qty_1y_2y", "stock_1y_2y", "age_1y_2y_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_val1y_2y": {
+            "type": "measure",
+            "description": "Stock value aged 1 to 2 years",
+            "aliases": ["value_1y_2y", "stock_value_1y_2y", "age_1y_2y_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_qty2y_3y": {
+            "type": "measure",
+            "description": "Stock quantity aged 2 to 3 years",
+            "aliases": ["qty_2y_3y", "stock_2y_3y", "age_2y_3y_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_val2y_3y": {
+            "type": "measure",
+            "description": "Stock value aged 2 to 3 years",
+            "aliases": ["value_2y_3y", "stock_value_2y_3y", "age_2y_3y_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_qty3y_4y": {
+            "type": "measure",
+            "description": "Stock quantity aged 3 to 4 years",
+            "aliases": ["qty_3y_4y", "stock_3y_4y", "age_3y_4y_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_val3y_4y": {
+            "type": "measure",
+            "description": "Stock value aged 3 to 4 years",
+            "aliases": ["value_3y_4y", "stock_value_3y_4y", "age_3y_4y_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_qtyabv_4y": {
+            "type": "measure",
+            "description": "Stock quantity aged above 4 years",
+            "aliases": ["qty_above_4y", "stock_above_4y", "age_above_4y_qty", "stgw_qtyabv4y"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_valabv_4y": {
+            "type": "measure",
+            "description": "Stock value aged above 4 years",
+            "aliases": ["value_above_4y", "stock_value_above_4y", "age_above_4y_value", "stgw_valabv4y"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_drum_qty": {
+            "type": "measure",
+            "description": "Drum stock quantity",
+            "aliases": ["drum_qty", "drum_stock_qty", "drum_quantity"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_drum_val": {
+            "type": "measure",
+            "description": "Drum stock value",
+            "aliases": ["drum_value", "drum_stock_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_drum_nos": {
+            "type": "measure",
+            "description": "Number of drum stock items",
+            "aliases": ["drum_nos", "drum_count", "drum_items"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_good_qty": {
+            "type": "measure",
+            "description": "Good quality stock quantity",
+            "aliases": ["good_qty", "good_stock_qty", "good_quantity"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_good_val": {
+            "type": "measure",
+            "description": "Good quality stock value",
+            "aliases": ["good_value", "good_stock_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_good_nos": {
+            "type": "measure",
+            "description": "Number of good quality stock items",
+            "aliases": ["good_nos", "good_count", "good_items"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_cut_qty": {
+            "type": "measure",
+            "description": "Cut stock quantity",
+            "aliases": ["cut_qty", "cut_stock_qty", "cut_quantity"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_cut_val": {
+            "type": "measure",
+            "description": "Cut stock value",
+            "aliases": ["cut_value", "cut_stock_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_cut_nos": {
+            "type": "measure",
+            "description": "Number of cut stock items",
+            "aliases": ["cut_nos", "cut_count", "cut_items"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_scrap_qty": {
+            "type": "measure",
+            "description": "Scrap stock quantity",
+            "aliases": ["scrap_qty", "scrap_stock_qty", "scrap_quantity"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_scrap_val": {
+            "type": "measure",
+            "description": "Scrap stock value",
+            "aliases": ["scrap_value", "scrap_stock_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_scrap_nos": {
+            "type": "measure",
+            "description": "Number of scrap stock items",
+            "aliases": ["scrap_nos", "scrap_count", "scrap_items"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_small_qty": {
+            "type": "measure",
+            "description": "Small stock quantity",
+            "aliases": ["small_qty", "small_stock_qty", "small_quantity"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_small_val": {
+            "type": "measure",
+            "description": "Small stock value",
+            "aliases": ["small_value", "small_stock_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_small_nos": {
+            "type": "measure",
+            "description": "Number of small stock items",
+            "aliases": ["small_nos", "small_count", "small_items"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_sale_qty": {
+            "type": "measure",
+            "description": "Sales quantity",
+            "aliases": ["sale_qty", "sales_quantity", "sold_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_sale_value": {
+            "type": "measure",
+            "description": "Sales value",
+            "aliases": ["sale_value", "sales_value", "revenue"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_sale90": {
+            "type": "measure",
+            "description": "Sales value for last 90 days",
+            "aliases": ["sale_90_days", "sales_last_90_days", "revenue_90_days"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_totsale_qty": {
+            "type": "measure",
+            "description": "Total sales quantity",
+            "aliases": ["total_sales_qty", "overall_sales_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_totsale_value": {
+            "type": "measure",
+            "description": "Total sales value",
+            "aliases": ["total_sales_value", "overall_sales_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_totsale90": {
+            "type": "measure",
+            "description": "Total sales value for last 90 days",
+            "aliases": ["total_sales_90_days", "overall_sales_90_days"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_profit_loss": {
+            "type": "measure",
+            "description": "Profit or loss for the period",
+            "aliases": ["profit_loss", "pnl", "net_profit_loss"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_total_profit_loss": {
+            "type": "measure",
+            "description": "Cumulative profit or loss",
+            "aliases": ["total_profit_loss", "cumulative_pnl"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_stock_lvl": {
+            "type": "measure",
+            "description": "Total stock quantity at gateway",
+            "aliases": ["stock_level", "gateway_stock_qty", "total_stock_qty"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_stock_lvl_value": {
+            "type": "measure",
+            "description": "Total stock value at gateway",
+            "aliases": ["stock_level_value", "gateway_stock_value", "total_stock_value"],
+            "aggregation": "sum"
+          },
+  
+          "stgw_stock_lvl_cost": {
+            "type": "measure",
+            "description": "Total stock cost at gateway",
+            "aliases": ["stock_level_cost", "gateway_stock_cost", "total_stock_cost"],
+            "aggregation": "sum"
+          }
+        },
+  
+        "dimensions": [
+          "stgw_company_code",
+          "stgw_branch_code",
+          "stgw_godown_code",
+          "stgw_item_code",
+          "stgw_make",
+          "stgw_main_group",
+          "stgw_sub_group",
+          "stgw_icaw_cat",
+          "stgw_icbw_cat",
+          "stgw_ica_cat",
+          "stgw_icb_cat"
+        ],
+  
+        "measures": [
+          "stgw_qty0_3m","stgw_val0_3m","stgw_qty3_6m","stgw_val3_6m",
+          "stgw_qty6m_1y","stgw_val6m_1y","stgw_qty1y_2y","stgw_val1y_2y",
+          "stgw_qty2y_3y","stgw_val2y_3y","stgw_qty3y_4y","stgw_val3y_4y",
+          "stgw_qtyabv_4y","stgw_valabv_4y",
+          "stgw_drum_qty","stgw_drum_val","stgw_drum_nos",
+          "stgw_good_qty","stgw_good_val","stgw_good_nos",
+          "stgw_cut_qty","stgw_cut_val","stgw_cut_nos",
+          "stgw_scrap_qty","stgw_scrap_val","stgw_scrap_nos",
+          "stgw_small_qty","stgw_small_val","stgw_small_nos",
+          "stgw_sale_qty","stgw_sale_value","stgw_sale90",
+          "stgw_totsale_qty","stgw_totsale_value","stgw_totsale90",
+          "stgw_profit_loss","stgw_total_profit_loss",
+          "stgw_stock_lvl","stgw_stock_lvl_value","stgw_stock_lvl_cost"
+        ],
+  
+        "time_columns": ["stgw_date"]
+      }
+    }
+  }

@@ -135,6 +135,9 @@ class QueryService:
                 raise SQLGenerationError(f"Query generation timed out. Please try again with a simpler question.")
             
             logger.info(f"SQL generated: {sql[:100]}...")
+
+            # Guardrail: prevent multiple top-level SELECT statements
+            self._validate_single_statement(sql)
             
             # ===================================================================
             # STEP 4: Create Query Domain Model
@@ -166,6 +169,21 @@ class QueryService:
             except asyncio.TimeoutError:
                 logger.error(f"SQL execution timed out after {sql_timeout}s")
                 raise SQLExecutionError(f"Query execution timed out. The query may be too complex. Please try a simpler query.")
+            except Exception as db_error:
+                # Convert database errors to SQLExecutionError
+                # This includes ProgrammingError, OperationalError, etc.
+                error_msg = str(db_error)
+                logger.error(f"Database error: {error_msg}")
+                # Provide user-friendly error message
+                if "does not exist" in error_msg or "UndefinedColumnError" in error_msg:
+                    raise SQLExecutionError(
+                        "The generated query references columns or tables that don't exist. "
+                        "Please try rephrasing your question or be more specific about which table to use."
+                    )
+                else:
+                    raise SQLExecutionError(
+                        f"Database error: {error_msg[:200]}"  # Truncate long error messages
+                    )
                 
             execution_time_ms = (time.time() - execution_start) * 1000
             query.execution_time_ms = execution_time_ms
@@ -213,6 +231,25 @@ Rules:
 - Ensure queries are read-only (SELECT only, no INSERT/UPDATE/DELETE)
 - Use proper SQL syntax
 - Add LIMIT clause if not present
+- CRITICAL: Do NOT include semicolon (;) in your SQL - LIMIT should come directly after ORDER BY
+- Example CORRECT: SELECT ... ORDER BY column DESC LIMIT 5
+- Example WRONG: SELECT ... ORDER BY column DESC; LIMIT 5
+
+CRITICAL: TABLE AND COLUMN BOUNDARIES:
+- Once you select a table, you MUST use ONLY columns from that specific table
+- DO NOT mix columns from different tables in the same query
+- Each table has its own column namespace:
+  * stgw_* prefix = stock_gw table (stock gateway data)
+  * spd_* prefix = stock_planning_data table
+  * gws_* prefix = gwanalytics table
+- If a column doesn't exist in the selected table, DO NOT use a similar column from another table
+- CRITICAL: Before using ANY column, verify it exists in the selected table by checking the semantic layer
+- If user mentions "stock gateway", "gateway", or uses terms like "ageing", "quality breakdown", prefer stock_gw table
+- If user mentions "stock planning" or "planning", prefer stock_planning_data table
+- Example: If querying stock_gw, use stgw_company_code, stgw_branch_code, stgw_stock_lvl_value
+- Example: If querying stock_planning_data, use spd_company_code, spd_branch_code, spd_stock_level (NOT spd_stock_lvl_value - that doesn't exist!)
+- Example: stock_planning_data does NOT have stgw_* columns - if user asks for "stock gateway" data, use stock_gw table
+- Check the semantic layer to see which columns belong to which table before generating SQL
 
 CRITICAL: USE SEMANTIC LAYER ALIASES:
 - Each column in the semantic layer has an "aliases" array with alternative names
@@ -221,6 +258,7 @@ CRITICAL: USE SEMANTIC LAYER ALIASES:
 - Example: If user says "customer", find the column whose aliases include "customer" or "client"
 - The semantic layer aliases are your PRIMARY way to map natural language to SQL columns
 - DO NOT guess column names - always use aliases from the semantic layer
+- When matching aliases, ensure the column belongs to the table you've selected
 
 CRITICAL NULL HANDLING:
 - For "top N", "highest", "lowest", or any ORDER BY queries: ALWAYS filter NULLs on the sort column in WHERE clause
@@ -258,4 +296,19 @@ CRITICAL NULL HANDLING:
 User Question: {question}
 
 Generate a SQL query that answers the user's question using only the tables and columns defined in the semantic layer above."""
+
+    def _validate_single_statement(self, sql: str) -> None:
+        """
+        Ensure the generated SQL contains only one top-level SELECT statement.
+
+        Prevents concatenated multiple SELECTs (common when user asks two questions
+        in one sentence) which cause syntax errors and are unsafe to run.
+        """
+        import re
+
+        selects = re.findall(r"^\\s*select\\b", sql, flags=re.IGNORECASE | re.MULTILINE)
+        if len(selects) > 1:
+            raise SQLGenerationError(
+                "Generated multiple SELECT statements; please ask one question at a time."
+            )
 
