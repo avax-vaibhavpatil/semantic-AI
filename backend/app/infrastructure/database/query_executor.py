@@ -42,9 +42,18 @@ async def execute_query(
     if engine is None:
         engine = get_async_engine()
     
-    # Add LIMIT if not present and max_rows specified
+    # Clean SQL: Remove semicolons (especially before LIMIT) and trailing whitespace
     safe_sql = sql.strip()
-    if max_rows and "limit" not in safe_sql.lower():
+    # Remove semicolon before LIMIT (common AI mistake: "ORDER BY ...; LIMIT")
+    safe_sql = safe_sql.replace('; LIMIT', ' LIMIT').replace(';LIMIT', ' LIMIT')
+    # Remove trailing semicolons
+    safe_sql = safe_sql.rstrip(';').strip()
+    
+    # Add LIMIT if not present and max_rows specified
+    sql_lower = safe_sql.lower()
+    has_limit = "limit" in sql_lower
+    
+    if max_rows and not has_limit:
         safe_sql = f"{safe_sql} LIMIT {max_rows}"
     
     # Execute query asynchronously
@@ -73,8 +82,18 @@ async def stream_query(
     if engine is None:
         engine = get_async_engine()
 
+    # Clean SQL: Remove semicolons (especially before LIMIT) and trailing whitespace
     safe_sql = sql.strip()
-    if max_rows and "limit" not in safe_sql.lower():
+    # Remove semicolon before LIMIT (common AI mistake: "ORDER BY ...; LIMIT")
+    safe_sql = safe_sql.replace('; LIMIT', ' LIMIT').replace(';LIMIT', ' LIMIT')
+    # Remove trailing semicolons
+    safe_sql = safe_sql.rstrip(';').strip()
+    
+    # Check for LIMIT
+    sql_lower = safe_sql.lower()
+    has_limit = "limit" in sql_lower
+    
+    if max_rows and not has_limit:
         safe_sql = f"{safe_sql} LIMIT {max_rows}"
 
     async with engine.connect() as conn:
@@ -131,8 +150,18 @@ async def execute_query_with_session(
     if not sql or not sql.strip():
         raise ValueError("SQL query cannot be empty")
     
+    # Clean SQL: Remove semicolons (especially before LIMIT) and trailing whitespace
     safe_sql = sql.strip()
-    if max_rows and "limit" not in safe_sql.lower():
+    # Remove semicolon before LIMIT (common AI mistake: "ORDER BY ...; LIMIT")
+    safe_sql = safe_sql.replace('; LIMIT', ' LIMIT').replace(';LIMIT', ' LIMIT')
+    # Remove trailing semicolons
+    safe_sql = safe_sql.rstrip(';').strip()
+    
+    # Check for LIMIT
+    sql_lower = safe_sql.lower()
+    has_limit = "limit" in sql_lower
+    
+    if max_rows and not has_limit:
         safe_sql = f"{safe_sql} LIMIT {max_rows}"
     
     result = await session.execute(text(safe_sql))

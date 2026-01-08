@@ -15,9 +15,12 @@ class Column:
     name: str
     type: str  # "dimension", "measure", "date"
     description: Optional[str] = None
+    
     role: Optional[str] = None  # "name", "code", "id"
     preferred: bool = False
     aliases: List[str] = field(default_factory=list)  # Alternative names for this column
+    aggregation: Optional[str] = None  # Production format: "sum", "avg", "count", etc. - hints for AI query generation
+    constraints: Optional[Dict[str, Any]] = None  # Production format: {"filterable": bool, "groupable": bool} - query validation hints
     
     def is_dimension(self) -> bool:
         """Check if column is a dimension"""
@@ -52,6 +55,8 @@ class Table:
     time_columns: List[str] = field(default_factory=list)
     derived_measures: List[DerivedMeasure] = field(default_factory=list)
     quality_rules: List[Dict[str, Any]] = field(default_factory=list)
+    metadata: Optional[Dict[str, Any]] = None  # Production format: version, owner, last_updated, verified, column_count - governance info
+    model: Optional[Dict[str, Any]] = None  # Production format: grain, grain_description - data modeling context
     
     def get_column(self, column_name: str) -> Optional[Column]:
         """Get a column by name"""
@@ -102,6 +107,22 @@ class SemanticLayer:
             return False
         return table.has_column(column_name)
     
+    def merge(self, other: "SemanticLayer") -> "SemanticLayer":
+        """
+        Merge another SemanticLayer into this one.
+        
+        Combines all tables from both semantic layers.
+        If a table exists in both, the other layer's table takes precedence.
+        
+        Args:
+            other: Another SemanticLayer to merge into this one
+            
+        Returns:
+            New SemanticLayer with all tables from both layers
+        """
+        merged_tables = {**self.tables, **other.tables}
+        return SemanticLayer(tables=merged_tables)
+    
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SemanticLayer":
         """
@@ -121,7 +142,9 @@ class SemanticLayer:
                     description=col_data.get("description"),
                     role=col_data.get("role"),
                     preferred=col_data.get("preferred", False),
-                    aliases=col_data.get("aliases", [])  # Load aliases from JSON
+                    aliases=col_data.get("aliases", []),  # Load aliases from JSON
+                    aggregation=col_data.get("aggregation"),  # Production format: Load aggregation hint (sum, avg, etc.)
+                    constraints=col_data.get("constraints")  # Production format: Load constraints (filterable, groupable)
                 )
             
             # Build derived measures
@@ -142,7 +165,9 @@ class SemanticLayer:
                 measures=table_data.get("measures", []),
                 time_columns=table_data.get("time_columns", []),
                 derived_measures=derived_measures,
-                quality_rules=table_data.get("quality_rules", [])
+                quality_rules=table_data.get("quality_rules", []),
+                metadata=table_data.get("metadata"),  # Production format: Load metadata (version, owner, etc.)
+                model=table_data.get("model")  # Production format: Load model info (grain, grain_description)
             )
         
         return cls(tables=tables)
@@ -156,6 +181,8 @@ class SemanticLayer:
         return {
             "tables": {
                 table_name: {
+                    "metadata": table.metadata,  # Production format: Include metadata if present
+                    "model": table.model,  # Production format: Include model info if present
                     "description": table.description,
                     "columns": {
                         col_name: {
@@ -163,7 +190,9 @@ class SemanticLayer:
                             "description": col.description,
                             "role": col.role,
                             "preferred": col.preferred,
-                            "aliases": col.aliases  # Include aliases so AI can use them
+                            "aliases": col.aliases,  # Include aliases so AI can use them
+                            "aggregation": col.aggregation,  # Production format: Include aggregation hint
+                            "constraints": col.constraints  # Production format: Include constraints
                         }
                         for col_name, col in table.columns.items()
                     },

@@ -38,12 +38,14 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+# CRITICAL: When allow_credentials=True, cannot use "*" for origins
+# Must specify exact origins or set allow_credentials=False
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "*"],  # Allow all for development
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001"],  # Frontend origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # All HTTP methods
+    allow_headers=["*"],  # All headers including X-User-Id
 )
 
 # Register global exception handlers
