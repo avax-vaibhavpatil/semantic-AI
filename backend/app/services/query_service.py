@@ -169,21 +169,6 @@ class QueryService:
             except asyncio.TimeoutError:
                 logger.error(f"SQL execution timed out after {sql_timeout}s")
                 raise SQLExecutionError(f"Query execution timed out. The query may be too complex. Please try a simpler query.")
-            except Exception as db_error:
-                # Convert database errors to SQLExecutionError
-                # This includes ProgrammingError, OperationalError, etc.
-                error_msg = str(db_error)
-                logger.error(f"Database error: {error_msg}")
-                # Provide user-friendly error message
-                if "does not exist" in error_msg or "UndefinedColumnError" in error_msg:
-                    raise SQLExecutionError(
-                        "The generated query references columns or tables that don't exist. "
-                        "Please try rephrasing your question or be more specific about which table to use."
-                    )
-                else:
-                    raise SQLExecutionError(
-                        f"Database error: {error_msg[:200]}"  # Truncate long error messages
-                    )
                 
             execution_time_ms = (time.time() - execution_start) * 1000
             query.execution_time_ms = execution_time_ms
@@ -238,17 +223,11 @@ Rules:
 CRITICAL: TABLE AND COLUMN BOUNDARIES:
 - Once you select a table, you MUST use ONLY columns from that specific table
 - DO NOT mix columns from different tables in the same query
-- Each table has its own column namespace:
-  * stgw_* prefix = stock_gw table (stock gateway data)
-  * spd_* prefix = stock_planning_data table
-  * gws_* prefix = gwanalytics table
+- Each table has its own column namespace (e.g., gws_* for gwanalytics, spd_* for stock_planning_data)
 - If a column doesn't exist in the selected table, DO NOT use a similar column from another table
-- CRITICAL: Before using ANY column, verify it exists in the selected table by checking the semantic layer
-- If user mentions "stock gateway", "gateway", or uses terms like "ageing", "quality breakdown", prefer stock_gw table
-- If user mentions "stock planning" or "planning", prefer stock_planning_data table
-- Example: If querying stock_gw, use stgw_company_code, stgw_branch_code, stgw_stock_lvl_value
-- Example: If querying stock_planning_data, use spd_company_code, spd_branch_code, spd_stock_level (NOT spd_stock_lvl_value - that doesn't exist!)
-- Example: stock_planning_data does NOT have stgw_* columns - if user asks for "stock gateway" data, use stock_gw table
+- Example: If querying gwanalytics, use gws_company_code, NOT spd_company_code
+- Example: If querying stock_planning_data, use spd_branch_code, NOT gws_branch_code
+- Example: gwanalytics table does NOT have location/branch columns - if user asks for "sales by location", use gws_company_code or another available dimension
 - Check the semantic layer to see which columns belong to which table before generating SQL
 
 CRITICAL: USE SEMANTIC LAYER ALIASES:
