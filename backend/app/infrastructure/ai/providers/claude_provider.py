@@ -13,10 +13,14 @@ class ClaudeProvider(AIProvider):
     name = "claude"
 
     def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+        # Get API key from parameter, environment variable, or None
+        # NEVER hardcode API keys in source code - use environment variables
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
-        # Default to Haiku (available on more tiers) to avoid 404s
-        # CRITICAL: Use Haiku model that works with the API key
+        
+        # Primary model: Claude 3 Haiku (tested and working with current API key)
+        # Haiku is fast, cost-effective, and works well for SQL generation
         self.model = model or os.environ.get("ANTHROPIC_MODEL", "claude-3-haiku-20240307")
+        
         self.client = None
         if self.api_key:
             self.client = anthropic.Anthropic(api_key=self.api_key)

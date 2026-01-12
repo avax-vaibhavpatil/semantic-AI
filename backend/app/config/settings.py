@@ -117,7 +117,7 @@ class Settings(BaseSettings):
     )
     anthropic_model: str = Field(
         default="claude-3-haiku-20240307",
-        description="Anthropic model to use (default: Haiku for better compatibility)"
+        description="Anthropic model to use (Claude 3 Haiku - fast, cost-effective, works well for SQL generation)"
     )
     
     # ============================================================================
