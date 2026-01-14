@@ -59,6 +59,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [warning, setWarning] = useState("");
+  const [showNoDataAlert, setShowNoDataAlert] = useState(true);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   
@@ -101,6 +102,7 @@ export default function Home() {
       setSql(res.data.query.sql);
       setRows(res.data.rows);
       setPage(0);
+      setShowNoDataAlert(true); // Reset alert visibility when new query runs
       if (res.data.warning) {
         setWarning(res.data.warning);
       }
@@ -527,6 +529,28 @@ export default function Home() {
               </Paper>
             </CardContent>
           </Card>
+        )}
+
+        {/* No Data Found Alert */}
+        {sql && rows.length === 0 && !loading && !error && showNoDataAlert && (
+          <Alert 
+            severity="info" 
+            sx={{ mb: 3 }}
+            onClose={() => setShowNoDataAlert(false)}
+          >
+            <Typography variant="body1" fontWeight="bold" gutterBottom>
+              No Data Found
+            </Typography>
+            <Typography variant="body2">
+              The query executed successfully but returned no results. This could mean:
+              <ul style={{ marginTop: 8, marginBottom: 0, paddingLeft: 20 }}>
+                <li>No records match your query criteria</li>
+                <li>The filters are too restrictive</li>
+                <li>The data may not exist for the selected parameters</li>
+              </ul>
+              Try adjusting your question or filters to get results.
+            </Typography>
+          </Alert>
         )}
 
         {/* Results Table */}
