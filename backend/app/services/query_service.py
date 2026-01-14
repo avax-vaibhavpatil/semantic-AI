@@ -246,67 +246,105 @@ class QueryService:
             ],
             "public.gwanalytics": [
                 "gwanalytics", "gws_", "ytd sales", "year to date sales", "year-to-date sales",
-                "budget", "customer", "handler", "salesperson", "salesman",
-                "outstanding", "profit loss", "profit and loss", "last 90 days sales"
+                "budget", "customer", "handler", "salesperson", "salesman", "saleman",  # Added typo variant
+                "outstanding", "profit loss", "profit and loss", "last 90 days sales",
+                "last year sale", "last year sales", "lytd sales", "lymtd sale", "lymtd sales"  # Added last year indicators
             ]
         }
         
         scores = {}
         
+        # Filter out common stop words that cause false matches
+        stop_words = {'the', 'a', 'an', 'of', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'may', 'might', 'must', 'can', 'me', 'my', 'we', 'our', 'you', 'your', 'their', 'them', 'this', 'that', 'these', 'those', 'show', 'me', 'get', 'give', 'find', 'where', 'what', 'which', 'who', 'when', 'how', 'and', 'or', 'but', 'if', 'then', 'else'}
+        meaningful_words = question_words - stop_words
+        
         # Analyze each table in the semantic layer
         for table_key, table in semantic_layer.tables.items():
             score = 0
             
-            # 0. Check high-priority table indicators first (strongest signal)
-            indicators = table_indicators.get(table_key, [])
-            for indicator in indicators:
-                if indicator in question_lower:
-                    score += 30  # Very high weight for specific indicators
-            
-            # 1. Check table description
-            if table.description:
-                table_desc = table.description.lower()
-                # Count matching words from question in table description
-                desc_words = set(table_desc.split())
-                matches = question_words.intersection(desc_words)
-                score += len(matches) * 5  # High weight for description matches
-            
-            # 2. Check table name itself
+            # PRIORITY 1: Check explicit table name FIRST (strongest signal)                                                                                                                                                                                                                                                                                                               
+            # If user explicitly mentions table name, that's definitive
             table_name_lower = table_key.lower()
-            if table_key in question_lower or table_name_lower.replace("public.", "") in question_lower:
-                score += 50  # Very high weight for explicit table mention
+            if table_key in question_lower or table_name_lower.replace("public.", "") in question_lower:                                                                                                                                        
+                score += 50  # Very high weight for explicit table mention                                                                                                                                                                          
+                logger.debug(f"Explicit table name match: {table_key}")
+                # Early exit optimization: if explicit table name found, skip other checks for this table
+                # (but still check other tables in case user mentions multiple)
             
-            # 3. Check column names and aliases
+            # PRIORITY 2: Check column aliases (semantic layer is primary source)
+            # This is the most reliable way to match user intent to actual columns
             for col_name, col in table.columns.items():
-                col_name_lower = col_name.lower()
-                
-                # Check if column name appears in question
-                if col_name_lower in question_lower:
-                    score += 10  # High weight for column name match
-                
-                # Check column aliases
+                # Check column aliases with improved fuzzy matching
                 for alias in col.aliases:
                     alias_lower = alias.lower()
+                    alias_words = alias_lower.split()
+                    
+                    # Exact alias match (highest priority)
                     if alias_lower in question_lower:
-                        score += 8  # Good weight for alias match
+                        score += 25  # Very high weight - semantic layer match
+                        logger.debug(f"Exact alias match: '{alias}' in {table_key}")
+                    
+                    # Fuzzy match for typos (e.g., "saleman" -> "salesman")
+                    else:
+                        for alias_word in alias_words:
+                            if len(alias_word) > 4:  # Only meaningful words
+                                for q_word in meaningful_words:
+                                    # Check if words are similar (typo tolerance)
+                                    if abs(len(q_word) - len(alias_word)) <= 2:
+                                        # Check substring match or similarity
+                                        if alias_word in q_word or q_word in alias_word:
+                                            # Additional check: if it's a known typo pattern
+                                            if (alias_word.startswith('sales') and q_word.startswith('sale')) or \
+                                               (alias_word.startswith('sales') and 'sale' in q_word):
+                                                score += 20  # High weight for typo match
+                                                logger.debug(f"Typo alias match: '{q_word}' -> '{alias_word}' in {table_key}")
+                                                break
                 
-                # Check column description
-                if col.description:
-                    col_desc = col.description.lower()
-                    col_desc_words = set(col_desc.split())
-                    col_matches = question_words.intersection(col_desc_words)
-                    score += len(col_matches) * 3  # Medium weight for description matches
+                # Check if column name itself appears (but lower priority than aliases)
+                col_name_lower = col_name.lower()
+                if col_name_lower in question_lower:
+                    score += 15  # High weight for column name match
             
-            # 4. Check measures and dimensions
+            # PRIORITY 3: Check measures (semantic layer)
             for measure in table.measures:
                 measure_lower = str(measure).lower()
+                # Check if measure name or key parts appear
                 if measure_lower in question_lower:
-                    score += 7
+                    score += 20  # High weight for measure match
+                # Also check for partial matches (e.g., "last year sale" -> "lytd_sales")
+                measure_parts = measure_lower.split('_')
+                for part in measure_parts:
+                    if len(part) > 3 and part in question_lower:
+                        score += 12  # Partial measure match
             
+            # PRIORITY 4: Check dimensions (semantic layer)
             for dimension in table.dimensions:
                 dimension_lower = str(dimension).lower()
                 if dimension_lower in question_lower:
-                    score += 7
+                    score += 15  # High weight for dimension match
+            
+            # PRIORITY 5: Check hardcoded indicators (fallback, but still useful)
+            indicators = table_indicators.get(table_key, [])
+            for indicator in indicators:
+                if indicator in question_lower:
+                    score += 15  # Useful fallback for common phrases
+            
+            # PRIORITY 6: Check table description (reduced weight, require 2+ word matches)
+            if table.description:
+                table_desc = table.description.lower()
+                desc_words = set(table_desc.split()) - stop_words
+                matches = meaningful_words.intersection(desc_words)
+                if len(matches) >= 2:  # Only count if 2+ words match (reduce noise)
+                    score += len(matches) * 3  # Reduced weight, filtered
+            
+            # PRIORITY 7: Check column descriptions (lowest priority, require 2+ word matches)
+            for col_name, col in table.columns.items():
+                if col.description:
+                    col_desc = col.description.lower()
+                    col_desc_words = set(col_desc.split()) - stop_words
+                    col_matches = meaningful_words.intersection(col_desc_words)
+                    if len(col_matches) >= 2:  # Only count if 2+ words match (reduce noise)
+                        score += len(col_matches) * 1  # Lowest weight, filtered
             
             scores[table_key] = score
         
@@ -372,22 +410,25 @@ CRITICAL: TABLE SELECTION - STRICT ENFORCEMENT:
      - Key indicators: "reorder", "planning", "pending orders", "stock level", "spd_*" columns
    
   3. **public.gwanalytics** (columns: gws_*)
-     - Use for: Sales data (YTD sales, last year YTD sales, last 90 days sales)
+     - Use for: Sales data (YTD sales, last year YTD sales, last 90 days sales, last year sale)
      - Use for: Budget data, customer data, handler/salesperson data
      - Use for: Outstanding amounts, profit/loss
-     - Key indicators: "sales", "budget", "customer", "handler", "salesperson", "gws_*" columns
+     - Key indicators: "sales", "sale", "budget", "customer", "handler", "salesperson", "salesman", "saleman", "last year sale", "last year sales", "gws_*" columns
+     - CRITICAL: If question mentions "salesman", "salesperson", "handler", "last year sale", or any sales-related query, you MUST use gwanalytics with gws_* prefix columns
+     - CRITICAL: NEVER use stgw_handled_by or stgw_* columns when query is about sales/salesman - use gws_handled_by from gwanalytics
 
 - If user mentions "stock gateway" or "gateway" → use stock_gw
 - If user mentions "planning" or "reorder" → use stock_planning_data
-- If user mentions "sales" or "customer" or "handler" → use gwanalytics
+- If user mentions "sales", "sale", "customer", "handler", "salesperson", "salesman", "saleman", or "last year sale" → use gwanalytics
 - If ambiguous, check column prefixes in semantic layer - match the prefix pattern to the table
 - CRITICAL: If the question mentions "stock gateway" or "gateway", you MUST use stock_gw table
 - CRITICAL: If the question mentions "planning", "reorder", "requirement", "requirement based", or "based on stock level", you MUST use stock_planning_data table  
-- CRITICAL: If the question mentions "sales" or "customer" or "handler", you MUST use gwanalytics table
+- CRITICAL: If the question mentions "sales", "sale", "customer", "handler", "salesperson", "salesman", "saleman", or "last year sale", you MUST use gwanalytics table
 - NEVER use stock_planning_data when the question asks about "stock gateway" or "gateway"
 - NEVER use stock_gw when the question asks about "planning", "reorder", "requirement", or "reorder levels"
 - NEVER use stock_gw when the question asks about "requirement based on stock level" - this MUST use stock_planning_data
-- NEVER use stock_gw or stock_planning_data when the question asks about "sales" or "customer"
+- NEVER use stock_gw or stock_planning_data when the question asks about "sales", "sale", "customer", "handler", or "salesperson/salesman"
+- CRITICAL: When using gwanalytics, use ONLY gws_* columns (e.g., gws_handled_by, gws_lytd_sales, gws_ytd_sales). NEVER use stgw_* or spd_* columns
 
 CRITICAL: TABLE AND COLUMN BOUNDARIES:
 - Once you select a table, you MUST use ONLY columns from that specific table
@@ -408,6 +449,14 @@ CRITICAL: USE SEMANTIC LAYER ALIASES:
 - DO NOT guess column names - always use aliases from the semantic layer
 - When matching aliases, ensure the column belongs to the table you've selected
 
+CRITICAL: TYPE CASTING FOR FILTERS:
+- When filtering by numeric codes (like handler codes, customer codes), check the semantic layer for column type
+- If the semantic layer shows the column is VARCHAR/TEXT but you're filtering with a number, cast the number to text
+- Example: If gws_handled_by is VARCHAR and user provides code 51488, use: WHERE gws_handled_by = '51488' (with quotes)
+- Example: If column type is INTEGER but value is provided as text, cast: WHERE column = CAST('value' AS INTEGER)
+- Always match the filter value type to the column type in the database
+- Check semantic layer column descriptions for type hints (e.g., "numeric code", "integer", "varchar")
+
 CRITICAL NULL HANDLING:
 - For "top N", "highest", "lowest", or any ORDER BY queries: ALWAYS filter NULLs on the sort column in WHERE clause
 - Example: If ordering by sales DESC, use: WHERE sales IS NOT NULL ORDER BY sales DESC
@@ -425,6 +474,20 @@ CRITICAL: COALESCE TYPE MATCHING:
 - Example WRONG: COALESCE(varchar_column, 0) - causes type mismatch error
 - Example CORRECT: COALESCE(varchar_column, '0') or COALESCE(varchar_column, '-')
 - Check data types in semantic layer before using COALESCE
+
+CRITICAL: COALESCE IN WHERE CLAUSES - NULL HANDLING:
+- When filtering on numeric columns that might be NULL, ALWAYS use COALESCE in WHERE clauses
+- If user asks for "zero", "is zero", "equals zero", "is null or zero", treat NULL as 0 using COALESCE
+- Example: User says "stock level is zero" → Use: WHERE COALESCE(stock_level, 0) = 0
+- Example: User says "pending stock is greater than 0" → Use: WHERE COALESCE(pending_stock, 0) > 0
+- Example: User says "no stock" or "zero stock" → Use: WHERE COALESCE(stock_level, 0) = 0
+- WRONG: WHERE stock_level = 0 (excludes NULL rows - they won't match = 0)
+- CORRECT: WHERE COALESCE(stock_level, 0) = 0 (includes NULL rows as 0)
+- WRONG: WHERE pending_stock > 0 (excludes NULL rows)
+- CORRECT: WHERE COALESCE(pending_stock, 0) > 0 (includes NULL rows as 0, but > 0 excludes them)
+- When comparing with zero (0), NULL values don't match, so use COALESCE to treat NULL as 0
+- When comparing with > 0 or < 0, use COALESCE to ensure NULL is treated as 0 (so > 0 excludes NULL, < 0 excludes NULL)
+- Key phrases that require COALESCE: "is zero", "equals zero", "is null or zero", "no stock", "zero stock", "empty stock"
 
 CRITICAL: TABLE JOINS:
 - ONLY join tables that exist in the semantic layer
