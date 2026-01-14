@@ -63,20 +63,13 @@ class ProviderRouter:
 
 def build_default_router() -> ProviderRouter:
     """
-    Build a router with priority:
-    1. Claude
-    2. Groq
-    3. OpenAI
+    Build a router with Claude only.
     Only providers with configured keys are included.
     """
     from app.infrastructure.ai.providers.claude_provider import ClaudeProvider
-    from app.infrastructure.ai.providers.groq_provider import GroqProvider
-    from app.infrastructure.ai.providers.openai_provider import OpenAIProvider
 
     providers: List[AIProvider] = [
         ClaudeProvider(),
-        GroqProvider(),
-        OpenAIProvider(),
     ]
     return ProviderRouter(providers)
 

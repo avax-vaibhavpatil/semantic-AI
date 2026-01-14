@@ -14,7 +14,6 @@ from app.repositories.semantic_repository import MultiFileSemanticRepository
 from app.repositories.report_repository import AsyncReportRepository
 from app.infrastructure.ai.router import ProviderRouter
 from app.infrastructure.ai.providers.claude_provider import ClaudeProvider
-from app.infrastructure.ai.providers.groq_provider import GroqProvider
 from app.config import get_logger
 
 logger = get_logger(__name__)
@@ -48,11 +47,10 @@ def initialize_services() -> None:
     
     # Initialize AI providers (heavy objects - created once)
     claude_provider = ClaudeProvider()
-    groq_provider = GroqProvider()
-    logger.debug(f"AI providers initialized: Claude={claude_provider.is_configured()}, Groq={groq_provider.is_configured()}")
+    logger.debug(f"AI providers initialized: Claude={claude_provider.is_configured()}")
     
-    # Initialize router with providers
-    providers = [claude_provider, groq_provider]
+    # Initialize router with providers (Claude only)
+    providers = [claude_provider]
     ai_router = ProviderRouter(providers)
     logger.debug("ProviderRouter initialized")
     

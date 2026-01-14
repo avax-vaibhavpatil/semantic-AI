@@ -78,10 +78,10 @@ class Settings(BaseSettings):
         description="Preferred AI provider"
     )
     ai_timeout_seconds: float = Field(
-        default=30.0,
+        default=120.0,
         ge=1.0,
         le=300.0,
-        description="Timeout for AI provider calls (seconds)"
+        description="Timeout for AI provider calls (seconds) - increased for complex queries"
     )
     sql_timeout_seconds: float = Field(
         default=60.0,
