@@ -7,7 +7,7 @@
         "description": "Column-centric, AI-optimized semantic layer for stock planning and inventory analytics",
         "last_updated": "2026-01-02",
         "verified": true,
-        "column_count": 50
+        "column_count": 53
       },
       "model": {
         "grain": "item_location_day",
@@ -709,6 +709,49 @@
             "filterable": false,
             "groupable": false
           }
+        },
+        "item_name": {
+          "type": "dimension",
+          "description": "Item name or product name",
+          "aliases": [
+            "item_name",
+            "product_name",
+            "item_description",
+            "product_description"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "company_name": {
+          "type": "dimension",
+          "description": "Company name",
+          "aliases": [
+            "company_name",
+            "org_name",
+            "business_unit_name"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
+        },
+        "branch_name": {
+          "type": "dimension",
+          "description": "Branch name or location name",
+          "aliases": [
+            "branch_name",
+            "location_name",
+            "branch_location_name"
+          ],
+          "aggregation": null,
+          "constraints": {
+            "filterable": true,
+            "groupable": true
+          }
         }
       },
       "dimensions": [
@@ -721,7 +764,10 @@
         "spd_itsub_group",
         "spd_catref_no",
         "spd_ica_category",
-        "spd_icb_category"
+        "spd_icb_category",
+        "item_name",
+        "company_name",
+        "branch_name"
       ],
       "measures": [
         "spd_list_price",

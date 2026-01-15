@@ -257,4 +257,12 @@ give me top 10 costumer and handle by name which their ytd sales and i don't wan
 
 
 
-show me DONEPUDI NIREESHA	salesman total yeayly sales 
+  show me DONEPUDI NIREESHA	salesman total yeayly sales 
+
+
+
+Why it sometimes fails
+Ambiguous queries: "sales by location" (location doesn't exist in sales table)
+Similar concepts: both tables have "company_code"
+Generic terms: "amount", "code", "date" exist in multiple tables
+No hard validation: relies on AI following instructions

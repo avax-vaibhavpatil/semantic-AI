@@ -7,7 +7,7 @@
           "description": "Column-centric, AI-optimized semantic layer for stock gateway ageing, valuation, quality, and sales analytics",
           "last_updated": "2026-01-07",
           "verified": true,
-          "column_count": 56
+          "column_count": 59
         },
   
         "model": {
@@ -388,6 +388,51 @@
             "description": "Total stock cost at gateway",
             "aliases": ["stock_level_cost", "gateway_stock_cost", "total_stock_cost"],
             "aggregation": "sum"
+          },
+          "item_name": {
+            "type": "dimension",
+            "description": "Item name or product name",
+            "aliases": ["item_name", "product_name", "item_description", "product_description"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+          "company_name": {
+            "type": "dimension",
+            "description": "Company name",
+            "aliases": ["company_name", "org_name", "business_unit_name"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+          "branch_name": {
+            "type": "dimension",
+            "description": "Branch name or location name",
+            "aliases": ["branch_name", "location_name", "branch_location_name"],
+            "aggregation": null,
+            "constraints": { "filterable": true, "groupable": true }
+          },
+          "stgw_qtyabv4y": {
+            "type": "measure",
+            "description": "Stock quantity aged above 4 years (alternative column name variant)",
+            "aliases": ["qty_above_4y_alt", "stock_above_4y_alt", "age_above_4y_qty_alt"],
+            "aggregation": "sum"
+          },
+          "stgw_valabv4y": {
+            "type": "measure",
+            "description": "Stock value aged above 4 years (alternative column name variant)",
+            "aliases": ["value_above_4y_alt", "stock_value_above_4y_alt", "age_above_4y_value_alt"],
+            "aggregation": "sum"
+          },
+          "stgw_qtyabv_1y": {
+            "type": "measure",
+            "description": "Stock quantity aged above 1 year",
+            "aliases": ["qty_above_1y", "stock_above_1y", "age_above_1y_qty"],
+            "aggregation": "sum"
+          },
+          "stgw_valabv_1y": {
+            "type": "measure",
+            "description": "Stock value aged above 1 year",
+            "aliases": ["value_above_1y", "stock_value_above_1y", "age_above_1y_value"],
+            "aggregation": "sum"
           }
         },
   
@@ -402,7 +447,10 @@
           "stgw_icaw_cat",
           "stgw_icbw_cat",
           "stgw_ica_cat",
-          "stgw_icb_cat"
+          "stgw_icb_cat",
+          "item_name",
+          "company_name",
+          "branch_name"
         ],
   
         "measures": [
@@ -410,6 +458,7 @@
           "stgw_qty6m_1y","stgw_val6m_1y","stgw_qty1y_2y","stgw_val1y_2y",
           "stgw_qty2y_3y","stgw_val2y_3y","stgw_qty3y_4y","stgw_val3y_4y",
           "stgw_qtyabv_4y","stgw_valabv_4y",
+          "stgw_qtyabv4y","stgw_valabv4y","stgw_qtyabv_1y","stgw_valabv_1y",
           "stgw_drum_qty","stgw_drum_val","stgw_drum_nos",
           "stgw_good_qty","stgw_good_val","stgw_good_nos",
           "stgw_cut_qty","stgw_cut_val","stgw_cut_nos",

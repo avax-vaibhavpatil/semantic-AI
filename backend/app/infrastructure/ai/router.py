@@ -63,13 +63,32 @@ class ProviderRouter:
 
 def build_default_router() -> ProviderRouter:
     """
-    Build a router with Claude only.
+    Build a router with OpenAI (currently active).
     Only providers with configured keys are included.
+    
+    NOTE: Claude is commented out but can be easily re-enabled.
+    To switch back to Claude:
+    1. Comment out OpenAIProvider
+    2. Uncomment ClaudeProvider
+    3. Update preferred_ai in settings.py to "anthropic"
     """
-    from app.infrastructure.ai.providers.claude_provider import ClaudeProvider
+    # Currently using OpenAI
+    from app.infrastructure.ai.providers.openai_provider import OpenAIProvider
+    from app.config import get_settings
+    
+    # Claude provider (commented out - can be re-enabled in future)
+    # from app.infrastructure.ai.providers.claude_provider import ClaudeProvider
 
+    settings = get_settings()
     providers: List[AIProvider] = [
-        ClaudeProvider(),
+        OpenAIProvider(
+            api_key=settings.openai_api_key,
+            model=settings.openai_model
+        ),  # Currently active
+        # ClaudeProvider(
+        #     api_key=settings.anthropic_api_key,
+        #     model=settings.anthropic_model
+        # ),  # Commented out - uncomment to switch back to Claude
     ]
     return ProviderRouter(providers)
 

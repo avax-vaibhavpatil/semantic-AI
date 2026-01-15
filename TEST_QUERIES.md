@@ -2,7 +2,8 @@
 
 Use these queries to test if the system correctly identifies and uses the right table. The table name in brackets `[table_name]` indicates which table should be selected.
 
-## Stock Gateway (stock_gw) Queries
+## Stock Gateway (stock_gw) Queries  
+
 
 1. **[stock_gw]** Show total stock quantity and total stock value by company and branch for the latest snapshot date.
 
@@ -22,17 +23,21 @@ Use these queries to test if the system correctly identifies and uses the right 
 
 ## Stock Planning (stock_planning_data) Queries
 
+show me items where there is requirement based on movment/stock level
+show me item where thier is no req and pending PO
+show me item their no stock level
+
 9. **[stock_planning_data]** Show stock level, reorder level, and drum level for all items in company code 3 and branch code 24.
 
 10. **[stock_planning_data]** What is the total stock level and average list price by company and branch?
 
 11. **[stock_planning_data]** Display items that need reordering: show items where stock level is less than reorder level. Include item code, branch, stock level, and reorder level.
 
-12. **[stock_planning_data]** Calculate total pending orders: sum of pending DI, ST, and DD by branch code.
+12. **[stock_planning_data]** Calculate total pending orders: sum of pending DI, ST, and DD by branch code/ item wise.
 
-13. **[stock_planning_data]** Show gross profit analysis: total gross profit and average gross profit by make (manufacturer).
+<!-- 13. **[stock_planning_data]** Show gross profit analysis: total gross profit and average gross profit by make (manufacturer). -->
 
-14. **[stock_planning_data]** What is the issue average for 6 months and 12 months by item? Show item code and both averages.
+14. **[stock_planning_data]** What is the issue average for 6 months and 12 months by item? Show item code and both averages.                   item code / catref/ product cod'
 
 15. **[stock_planning_data]** Find items with stock above 6 months. Show item code, branch, and quantity above 6 months.
 

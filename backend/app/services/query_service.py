@@ -107,7 +107,8 @@ class QueryService:
             # ===================================================================
             # System prompt: Instructions for AI
             # User prompt: User's question + semantic layer context + table enforcement
-            system_prompt = self._build_system_prompt(detected_table)
+            # Pass semantic_layer to system prompt to dynamically extract name columns
+            system_prompt = self._build_system_prompt(detected_table, semantic_layer)
             user_prompt = self._build_user_prompt(request.question, semantic_layer, detected_table)
             
             logger.debug("Prompts built, generating SQL...")
@@ -369,14 +370,42 @@ class QueryService:
         logger.debug("No table detected from semantic layer analysis")
         return None
     
-    def _build_system_prompt(self, detected_table: Optional[str] = None) -> str:
+    def _build_system_prompt(self, detected_table: Optional[str] = None, semantic_layer: Optional[SemanticLayer] = None) -> str:
         """
         Build the system prompt for AI.
         
         This tells AI how to generate SQL.
         System prompt = Instructions/guidelines
+        
+        Args:
+            detected_table: Optional table that was detected from question
+            semantic_layer: Optional semantic layer to extract name columns dynamically
         """
-        return """You are a SQL generator. Your task is to convert natural language questions into SQL queries.
+        # Dynamically extract name columns from semantic layer if provided
+        name_columns_section = ""
+        if semantic_layer:
+            name_columns_by_table = {}
+            for table_key, table in semantic_layer.tables.items():
+                name_cols = [col_name for col_name in table.columns.keys() if 'name' in col_name.lower()]
+                if name_cols:
+                    name_columns_by_table[table_key] = name_cols
+            
+            if name_columns_by_table:
+                name_columns_section = "\n- Available name columns in each table (NOTE: These columns do NOT have table prefixes):\n"
+                for table_key, cols in name_columns_by_table.items():
+                    # Show what NOT to use (with prefixes)
+                    wrong_examples = []
+                    for col in cols:
+                        prefix = self._get_table_prefix(table_key)
+                        if prefix:
+                            wrong_examples.append(f"NOT {prefix}{col}")
+                    wrong_str = ", ".join(wrong_examples[:2]) if wrong_examples else ""
+                    name_columns_section += f"  * {table_key}: {', '.join(cols)}"
+                    if wrong_str:
+                        name_columns_section += f" ({wrong_str})"
+                    name_columns_section += "\n"
+        
+        return f"""You are a SQL generator. Your task is to convert natural language questions into SQL queries.
 
 Rules:
 - Return ONLY a single SELECT statement (no explanations, no markdown)
@@ -448,6 +477,20 @@ CRITICAL: USE SEMANTIC LAYER ALIASES:
 - The semantic layer aliases are your PRIMARY way to map natural language to SQL columns
 - DO NOT guess column names - always use aliases from the semantic layer
 - When matching aliases, ensure the column belongs to the table you've selected
+
+CRITICAL: PRIORITIZE NAME COLUMNS OVER CODE COLUMNS:
+- When users ask for "names" (branch names, item names, customer names, company names, handler names), ALWAYS use the name columns, NOT code columns
+{name_columns_section}- IMPORTANT: Name columns are WITHOUT table prefixes - use "branch_name" not "spd_branch_name"
+- Example: User asks "show me branch names" → Use branch_name, NOT spd_branch_code, NOT spd_branch_name
+- Example: User asks "list customer names" → Use cust_name, NOT gws_cust_code, NOT gws_cust_name
+- Example: User asks "show item names" → Use item_name, NOT spd_item_code, NOT spd_item_name, NOT stgw_item_code, NOT stgw_item_name
+- Example: User asks "handler names" → Use handled_name, NOT gws_handled_by, NOT gws_handled_name
+- Example: User asks "company names" → Use company_name, NOT spd_company_code, NOT spd_company_name, NOT gws_company_code, NOT gws_company_name
+- RULE: If user mentions "name" or "names" in their question, prioritize name columns over code columns
+- RULE: Only use code columns (like branch_code, item_code, cust_code) when user explicitly asks for "codes" or "IDs"
+- RULE: Name columns are WITHOUT prefixes - use them as-is (check semantic layer for exact column names)
+- When both name and code columns exist, prefer name columns for human-readable output
+- Check the semantic layer JSON provided to see which name columns exist in each table
 
 CRITICAL: TYPE CASTING FOR FILTERS:
 - When filtering by numeric codes (like handler codes, customer codes), check the semantic layer for column type

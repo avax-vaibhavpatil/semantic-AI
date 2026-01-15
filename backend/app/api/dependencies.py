@@ -13,8 +13,10 @@ from app.services.report_service import ReportService
 from app.repositories.semantic_repository import MultiFileSemanticRepository
 from app.repositories.report_repository import AsyncReportRepository
 from app.infrastructure.ai.router import ProviderRouter
-from app.infrastructure.ai.providers.claude_provider import ClaudeProvider
-from app.config import get_logger
+# Claude provider (commented out - currently using OpenAI)
+# from app.infrastructure.ai.providers.claude_provider import ClaudeProvider
+from app.infrastructure.ai.providers.openai_provider import OpenAIProvider
+from app.config import get_logger, get_settings
 
 logger = get_logger(__name__)
 
@@ -46,11 +48,21 @@ def initialize_services() -> None:
     logger.debug("ReportRepository initialized")
     
     # Initialize AI providers (heavy objects - created once)
-    claude_provider = ClaudeProvider()
-    logger.debug(f"AI providers initialized: Claude={claude_provider.is_configured()}")
+    # Currently using OpenAI
+    settings = get_settings()
+    openai_provider = OpenAIProvider(
+        api_key=settings.openai_api_key,
+        model=settings.openai_model
+    )
+    logger.debug(f"AI providers initialized: OpenAI={openai_provider.is_configured()}")
     
-    # Initialize router with providers (Claude only)
-    providers = [claude_provider]
+    # Claude provider (commented out - can be re-enabled in future)
+    # claude_provider = ClaudeProvider()
+    # logger.debug(f"AI providers initialized: Claude={claude_provider.is_configured()}")
+    
+    # Initialize router with providers (OpenAI currently active)
+    providers = [openai_provider]  # Currently using OpenAI
+    # providers = [claude_provider]  # Uncomment to switch back to Claude
     ai_router = ProviderRouter(providers)
     logger.debug("ProviderRouter initialized")
     

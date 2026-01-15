@@ -73,8 +73,9 @@ class Settings(BaseSettings):
     # AI Provider Configuration
     # ============================================================================
     # Preferred AI provider: "groq", "openai", or "anthropic"
+    # NOTE: Currently using OpenAI. To switch back to Claude, change to "anthropic"
     preferred_ai: str = Field(
-        default="groq",
+        default="openai",
         description="Preferred AI provider"
     )
     ai_timeout_seconds: float = Field(
@@ -101,9 +102,11 @@ class Settings(BaseSettings):
     )
     
     # OpenAI API
+    # NOTE: API key must be set via environment variable OPENAI_API_KEY or .env file
+    # DO NOT hardcode API keys in source code - they will be detected by GitHub secret scanning
     openai_api_key: Optional[str] = Field(
         default=None,
-        description="OpenAI API key"
+        description="OpenAI API key (set via OPENAI_API_KEY environment variable)"
     )
     openai_model: str = Field(
         default="gpt-4o-mini",

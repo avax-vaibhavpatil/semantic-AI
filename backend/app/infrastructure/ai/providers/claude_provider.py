@@ -1,5 +1,12 @@
 """
 Claude Provider (Anthropic)
+
+NOTE: Currently commented out in favor of OpenAI.
+To re-enable Claude:
+1. Uncomment ClaudeProvider in app/api/dependencies.py
+2. Uncomment ClaudeProvider in app/infrastructure/ai/router.py
+3. Comment out OpenAIProvider in both files
+4. Update preferred_ai in settings.py to "anthropic"
 """
 
 import os
