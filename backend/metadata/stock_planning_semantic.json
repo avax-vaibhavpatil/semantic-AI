@@ -156,7 +156,10 @@
           "description": "ICA category classification",
           "aliases": [
             "ica_category",
-            "ica"
+            "ica",
+            "category",
+            "z category",
+            "ica cat"
           ],
           "aggregation": null,
           "constraints": {

@@ -147,10 +147,55 @@ class QueryService:
             self._validate_single_statement(sql)
             
             # Guardrail: validate table selection if we detected one
-            if detected_table:
-                self._validate_table_selection(sql, detected_table)
-                # Also validate that columns used exist in the selected table
-                self._validate_columns_exist(sql, detected_table, semantic_layer)
+            max_retries = 3  # Increased retries for better success rate
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    if detected_table:
+                        self._validate_table_selection(sql, detected_table)
+                        # Also validate that columns used exist in the selected table
+                        self._validate_columns_exist(sql, detected_table, semantic_layer)
+                        # Validate that code columns are not used with text values
+                        self._validate_name_vs_code_columns(sql, detected_table, semantic_layer)
+                    break  # All validations passed
+                except SQLGenerationError as validation_error:
+                    if retry_count < max_retries - 1:
+                        # Retry with corrected instructions
+                        logger.warning(f"Validation failed (attempt {retry_count + 1}/{max_retries}), retrying with corrected instructions: {validation_error}")
+                        # Extract the specific correction from error message
+                        error_msg = str(validation_error)
+                        correction_hint = ""
+                        if "Use '" in error_msg and "instead" in error_msg:
+                            # Extract the suggested column from error message
+                            import re
+                            match = re.search(r"Use '(\w+)' instead", error_msg)
+                            if match:
+                                correct_col = match.group(1)
+                                # Extract wrong column from error message
+                                wrong_match = re.search(r"'(\w+)' is an", error_msg)
+                                if wrong_match:
+                                    wrong_col = wrong_match.group(1)
+                                    correction_hint = f"\n\nCRITICAL FIX: Replace '{wrong_col}' with '{correct_col}' in the WHERE clause."
+                        
+                        retry_prompt = f"{user_prompt}\n\nIMPORTANT CORRECTION: The previous SQL had an error: {validation_error}{correction_hint}\n\nPlease regenerate the SQL with this correction applied. Make sure to use the correct column name."
+                        sql = await asyncio.wait_for(
+                            loop.run_in_executor(
+                                None,
+                                lambda: self.ai_router.generate_sql(
+                                    system_prompt=system_prompt,
+                                    user_prompt=retry_prompt,
+                                    temperature=0.0,
+                                    max_tokens=1500,
+                                )
+                            ),
+                            timeout=ai_timeout,
+                        )
+                        logger.info(f"SQL regenerated after validation error (attempt {retry_count + 1}): {sql[:100]}...")
+                        retry_count += 1
+                    else:
+                        # Max retries reached, raise the error
+                        logger.error(f"Validation failed after {max_retries} retries. Final SQL: {sql[:200]}")
+                        raise
             
             # ===================================================================
             # STEP 5: Create Query Domain Model
@@ -236,7 +281,9 @@ class QueryService:
             "public.stock_gw": [
                 "stock gateway", "gateway", "ageing", "above 4 years",
                 "0-6 months", "6-12 months", "1-2 years", "2-3 years", "3-4 years",
-                "stgw_", "nos count", "quality breakdown"
+                "stgw_", "nos count", "quality breakdown", "items with sales", "items with profit",
+                "sales value", "sale value", "profit loss", "highest profit", "items profit",
+                "items with", "list of items"
             ],
             "public.stock_planning_data": [
                 "stock planning", "planning", "reorder level", "reorder",
@@ -247,8 +294,8 @@ class QueryService:
             ],
             "public.gwanalytics": [
                 "gwanalytics", "gws_", "ytd sales", "year to date sales", "year-to-date sales",
-                "budget", "customer", "handler", "salesperson", "salesman", "saleman",  # Added typo variant
-                "outstanding", "profit loss", "profit and loss", "last 90 days sales",
+                "budget", "customer", "customers", "handler", "salesperson", "salesman", "saleman",  # Added typo variant
+                "outstanding", "outstandings", "profit loss", "profit and loss", "last 90 days sales",
                 "last year sale", "last year sales", "lytd sales", "lymtd sale", "lymtd sales"  # Added last year indicators
             ]
         }
@@ -280,8 +327,11 @@ class QueryService:
                     alias_lower = alias.lower()
                     alias_words = alias_lower.split()
                     
-                    # Exact alias match (highest priority)
-                    if alias_lower in question_lower:
+                    # Exact alias match (highest priority) - use word boundaries to avoid false matches
+                    # Check if alias appears as a whole word, not as substring
+                    import re
+                    alias_pattern = r'\b' + re.escape(alias_lower) + r'\b'
+                    if re.search(alias_pattern, question_lower):
                         score += 25  # Very high weight - semantic layer match
                         logger.debug(f"Exact alias match: '{alias}' in {table_key}")
                     
@@ -317,6 +367,18 @@ class QueryService:
                 for part in measure_parts:
                     if len(part) > 3 and part in question_lower:
                         score += 12  # Partial measure match
+            
+            # PRIORITY 3.5: Special handling for "items with sales/profit" queries
+            # These should strongly indicate stock_gw table
+            if "items" in question_lower and ("sales" in question_lower or "profit" in question_lower):
+                if table_key == "public.stock_gw":
+                    # Check if table has both item and sales/profit columns
+                    has_item_col = any("item" in col.lower() for col in table.columns.keys())
+                    has_sales_col = any("sale" in col.lower() or "sales" in col.lower() for col in table.columns.keys())
+                    has_profit_col = any("profit" in col.lower() for col in table.columns.keys())
+                    if has_item_col and (has_sales_col or has_profit_col):
+                        score += 40  # Very high weight for items + sales/profit combination
+                        logger.debug(f"Items with sales/profit match: {table_key}")
             
             # PRIORITY 4: Check dimensions (semantic layer)
             for dimension in table.dimensions:
@@ -458,6 +520,10 @@ CRITICAL: TABLE SELECTION - STRICT ENFORCEMENT:
 - NEVER use stock_gw when the question asks about "requirement based on stock level" - this MUST use stock_planning_data
 - NEVER use stock_gw or stock_planning_data when the question asks about "sales", "sale", "customer", "handler", or "salesperson/salesman"
 - CRITICAL: When using gwanalytics, use ONLY gws_* columns (e.g., gws_handled_by, gws_lytd_sales, gws_ytd_sales). NEVER use stgw_* or spd_* columns
+- CRITICAL: gwanalytics table does NOT have branch_name column - if filtering by company/branch, use company_name or gws_company_code
+- CRITICAL: Each table has different available columns - check semantic layer to see which name columns exist in each table
+- Example: stock_planning_data has branch_name, but gwanalytics does NOT have branch_name
+- Example: If querying gwanalytics and user mentions "Shree NM", use company_name (if exists) or gws_company_code, NOT branch_name
 
 CRITICAL: TABLE AND COLUMN BOUNDARIES:
 - Once you select a table, you MUST use ONLY columns from that specific table
@@ -491,6 +557,37 @@ CRITICAL: PRIORITIZE NAME COLUMNS OVER CODE COLUMNS:
 - RULE: Name columns are WITHOUT prefixes - use them as-is (check semantic layer for exact column names)
 - When both name and code columns exist, prefer name columns for human-readable output
 - Check the semantic layer JSON provided to see which name columns exist in each table
+
+CRITICAL: USE NAME COLUMNS FOR TEXT FILTERS (MOST IMPORTANT FOR WHERE CLAUSES):
+- When filtering by text values (names, not numeric codes), ALWAYS use name columns, NOT code columns
+- If the filter value contains text/spaces (like "Shree NM Bangalore", "Delton", "Mumbai", "Shree NM"), it's a NAME → use name column
+- If the filter value is purely numeric (like "06", "51488", "123"), it's a CODE → use code column
+- Example WRONG: WHERE spd_branch_code = 'Shree NM Bangalore' (spd_branch_code is INTEGER, can't match text - causes error)
+- Example CORRECT: WHERE branch_name = 'Shree NM Bangalore' (branch_name is VARCHAR, matches text)
+- Example WRONG: WHERE spd_company_code = 'Delton' (spd_company_code is INTEGER, can't match text - causes error)
+- Example CORRECT: WHERE company_name = 'Delton' (company_name is VARCHAR, matches text)
+- Example WRONG: WHERE spd_branch_code = 'Shree NM' (spd_branch_code is INTEGER, can't match text - causes error)
+- Example CORRECT: WHERE branch_name = 'Shree NM' (branch_name is VARCHAR, matches text)
+- Example WRONG: WHERE spd_branch_code = 'Mumbai' (spd_branch_code is INTEGER, can't match text - causes error)
+- Example CORRECT: WHERE branch_name = 'Mumbai' (branch_name is VARCHAR, matches text)
+- Example CORRECT: WHERE spd_branch_code = 06 (numeric code, use code column)
+- Example CORRECT: WHERE gws_handled_by = '51488' (VARCHAR code column, use quotes for text)
+- RULE: If filter value looks like a name (text with spaces, letters, not just digits) → use name column
+- RULE: If filter value is purely numeric → use code column (but check if code column is VARCHAR or INTEGER)
+- RULE: Check semantic layer to see if name column exists - if it does and value is text, use name column
+- RULE: When user says "in [Company Name]" or "in [Branch Name]" or "[Location Name] branch" → use name column, NOT code column
+- RULE: Common patterns that require name columns: "in Shree NM", "in Delton", "Mumbai branch", "Bangalore branch", "Shree NM Bangalore"
+- RULE: For compound location names like "Shree NM, Mumbai branch" or "Shree NM Mumbai", treat the ENTIRE phrase as ONE branch name
+- RULE: Do NOT split compound location names into multiple filters - use the complete name as a single filter value
+- Example: "Shree NM, Mumbai branch" → WHERE branch_name = 'Shree NM, Mumbai' (single filter, not two)
+- Example: "Shree NM Mumbai" → WHERE branch_name = 'Shree NM Mumbai' (single filter)
+- RULE: For category filters, extract ONLY the category value, NOT the word "category"
+- Example: User says "Z category" → Use WHERE spd_ica_category = 'Z' (NOT 'Z category')
+- Example: User says "category Z" → Use WHERE spd_ica_category = 'Z' (NOT 'category Z')
+- Example: User says "A category items" → Use WHERE spd_ica_category = 'A' (NOT 'A category')
+- RULE: When filtering by category, remove the word "category" from the filter value - use only the letter/number
+- This is CRITICAL for WHERE clauses - wrong column type causes "invalid input syntax for type integer" errors
+- ALWAYS check: Does the filter value contain letters/spaces? → Use name column. Is it purely numeric? → Use code column
 
 CRITICAL: TYPE CASTING FOR FILTERS:
 - When filtering by numeric codes (like handler codes, customer codes), check the semantic layer for column type
@@ -669,42 +766,78 @@ Generate a SQL query that answers the user's question using only the tables and 
                 f"Available columns include: {', '.join(available_columns)}..."
             )
     
-    def _validate_columns_exist(self, sql: str, table_key: str, semantic_layer: SemanticLayer) -> None:
+    def _validate_name_vs_code_columns(self, sql: str, table_key: str, semantic_layer: SemanticLayer) -> None:
         """
-        Validate that all columns used in SQL actually exist in the selected table.
+        Validate that code columns (INTEGER) are not used with text values.
+        If a text value is used, it should use the name column instead.
+        Also validates that name columns used actually exist in the table.
         
         Raises:
-            SQLGenerationError: If non-existent columns are used
+            SQLGenerationError: If code column is used with text value or name column doesn't exist
         """
+        import re
         table = semantic_layer.get_table(table_key)
         if not table:
-            return  # Table not found, let database handle the error
+            return
         
-        # Extract column names from SQL (simple regex-based extraction)
-        import re
-        # Get expected prefix for this table
-        expected_prefix = self._get_table_prefix(table_key)
+        # First check: Validate that name columns used actually exist in the table
+        # gwanalytics doesn't have branch_name, so catch that
+        name_columns_to_check = ['branch_name', 'company_name', 'item_name', 'cust_name', 'handled_name']
+        for name_col in name_columns_to_check:
+            # Check if this name column is used in SQL
+            pattern = rf'\b{re.escape(name_col)}\b'
+            if re.search(pattern, sql, re.IGNORECASE):
+                # Check if it exists in the table
+                if not table.has_column(name_col):
+                    # Suggest alternative based on table
+                    if table_key == "public.gwanalytics" and name_col == "branch_name":
+                        raise SQLGenerationError(
+                            f"Column '{name_col}' does not exist in table '{table_key}'. "
+                            f"For company/branch filtering in gwanalytics, use 'company_name' (if exists) or 'gws_company_code' instead."
+                        )
+                    else:
+                        raise SQLGenerationError(
+                            f"Column '{name_col}' does not exist in table '{table_key}'. "
+                            f"Check the semantic layer for available columns in this table."
+                        )
         
-        # Find potential column references with the expected prefix
-        # Pattern: prefix followed by word characters
-        prefix_pattern = re.compile(rf'\b{re.escape(expected_prefix.lower())}\w+', re.IGNORECASE)
-        found_columns = set(prefix_pattern.findall(sql))
+        # Second check: Code columns that are INTEGER and should not be used with text values
+        code_columns = {
+            'spd_branch_code': 'branch_name',
+            'spd_company_code': 'company_name',
+            'spd_item_code': 'item_name',
+            'gws_company_code': 'company_name',
+            'gws_cust_code': 'cust_name',
+            'stgw_branch_code': 'branch_name',
+            'stgw_company_code': 'company_name',
+            'stgw_item_code': 'item_name',
+        }
         
-        # Check each found column exists in the table
-        invalid_columns = []
-        for col_ref in found_columns:
-            col_name = col_ref.lower()
-            # Check if column exists in table
-            if not table.has_column(col_name):
-                invalid_columns.append(col_ref)
-        
-        if invalid_columns:
-            available_columns = list(table.columns.keys())[:10]  # Show first 10
-            raise SQLGenerationError(
-                f"Invalid columns used in query for table '{table_key}': {', '.join(invalid_columns)}. "
-                f"These columns do not exist in the selected table. "
-                f"Available columns include: {', '.join(available_columns)}..."
-            )
+        # Pattern to find WHERE clauses with code columns and text values
+        # Matches: column = 'text value' or column = "text value"
+        for code_col, name_col in code_columns.items():
+            # Check if this code column exists in the table
+            if not table.has_column(code_col):
+                continue
+            
+            # Check if name column exists (if not, skip this check)
+            if not table.has_column(name_col):
+                continue
+            
+            # Pattern: code_column = 'text' or code_column = "text"
+            # Look for code column followed by = and a quoted string
+            pattern = rf'\b{re.escape(code_col)}\s*=\s*[\'"]([^\'"]+)[\'"]'
+            matches = re.finditer(pattern, sql, re.IGNORECASE)
+            
+            for match in matches:
+                value = match.group(1)
+                # If value contains letters/spaces (not just digits), it's a name
+                if re.search(r'[a-zA-Z\s]', value):
+                    raise SQLGenerationError(
+                        f"Type mismatch: '{code_col}' is an INTEGER column but was used with text value '{value}'. "
+                        f"Use '{name_col}' instead for text values. "
+                        f"Example: WHERE {name_col} = '{value}' instead of WHERE {code_col} = '{value}'"
+                    )
     
     def _validate_single_statement(self, sql: str) -> None:
         """
