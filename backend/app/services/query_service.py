@@ -24,6 +24,7 @@ from app.repositories.base import SemanticRepository
 from app.infrastructure.ai.router import ProviderRouter
 from app.infrastructure.database.query_executor import execute_query
 from app.config import get_logger, get_settings
+from app.services.query_preprocessor import QueryPreprocessor
 
 logger = get_logger(__name__)
 
@@ -58,6 +59,7 @@ class QueryService:
         """
         self.semantic_repository = semantic_repository
         self.ai_router = ai_router
+        self.preprocessor = QueryPreprocessor()  # Initialize preprocessor
     
     async def execute_query(
         self,
@@ -97,19 +99,32 @@ class QueryService:
             logger.debug(f"Semantic layer loaded: {len(semantic_layer.tables)} tables")
             
             # ===================================================================
-            # STEP 2: Detect Table from Question (Preprocessing)
+            # STEP 2: Preprocess Query (Extract Entities)
+            # ===================================================================
+            # Extract structured entities (company, branch, make) from natural language
+            # This reduces system prompt complexity and improves accuracy
+            extracted_entities = self.preprocessor.extract_entities(request.question)
+            logger.debug(f"Extracted entities: {extracted_entities}")
+            
+            # ===================================================================
+            # STEP 3: Detect Table from Question
             # ===================================================================
             # Pre-detect which table the user is asking about to enforce strict selection
             detected_table = self._detect_table_from_question(request.question, semantic_layer)
             
             # ===================================================================
-            # STEP 3: Build AI Prompts
+            # STEP 4: Build AI Prompts
             # ===================================================================
             # System prompt: Instructions for AI
-            # User prompt: User's question + semantic layer context + table enforcement
+            # User prompt: User's question + semantic layer context + table enforcement + extracted entities
             # Pass semantic_layer to system prompt to dynamically extract name columns
             system_prompt = self._build_system_prompt(detected_table, semantic_layer)
-            user_prompt = self._build_user_prompt(request.question, semantic_layer, detected_table)
+            user_prompt = self._build_user_prompt(
+                extracted_entities.get("enhanced_question", request.question),
+                semantic_layer,
+                detected_table,
+                extracted_entities
+            )
             
             logger.debug("Prompts built, generating SQL...")
             
@@ -157,6 +172,11 @@ class QueryService:
                         self._validate_columns_exist(sql, detected_table, semantic_layer)
                         # Validate that code columns are not used with text values
                         self._validate_name_vs_code_columns(sql, detected_table, semantic_layer)
+                        # Validate case-insensitive matching and NULL handling
+                        self._validate_case_and_null_handling(sql, detected_table, extracted_entities)
+                        # Validate that extracted entities are used correctly
+                        if extracted_entities:
+                            self._validate_extracted_entities(sql, detected_table, extracted_entities)
                     break  # All validations passed
                 except SQLGenerationError as validation_error:
                     if retry_count < max_retries - 1:
@@ -177,7 +197,23 @@ class QueryService:
                                     wrong_col = wrong_match.group(1)
                                     correction_hint = f"\n\nCRITICAL FIX: Replace '{wrong_col}' with '{correct_col}' in the WHERE clause."
                         
-                        retry_prompt = f"{user_prompt}\n\nIMPORTANT CORRECTION: The previous SQL had an error: {validation_error}{correction_hint}\n\nPlease regenerate the SQL with this correction applied. Make sure to use the correct column name."
+                        # Enhanced correction hints for LOWER() and COALESCE() issues
+                        enhanced_correction = correction_hint
+                        if "LOWER()" in error_msg or "COALESCE()" in error_msg:
+                            enhanced_correction = "\n\nCRITICAL FIXES REQUIRED:\n"
+                            if "LOWER()" in error_msg:
+                                enhanced_correction += "- For ALL text column comparisons (company_name, branch_name, item_name), you MUST use LOWER() function:\n"
+                                enhanced_correction += "  WRONG: WHERE branch_name = 'Mumbai'\n"
+                                enhanced_correction += "  CORRECT: WHERE LOWER(branch_name) = LOWER('Mumbai')\n"
+                                enhanced_correction += "  WRONG: WHERE company_name LIKE '%shree nm%'\n"
+                                enhanced_correction += "  CORRECT: WHERE LOWER(company_name) LIKE LOWER('%shree nm%')\n"
+                            if "COALESCE()" in error_msg:
+                                enhanced_correction += "- For ALL numeric comparisons with zero (sale90, stock_level), you MUST use COALESCE():\n"
+                                enhanced_correction += "  WRONG: WHERE stgw_sale90 = 0\n"
+                                enhanced_correction += "  CORRECT: WHERE COALESCE(stgw_sale90, 0) = 0\n"
+                                enhanced_correction += "  This is critical because NULL values won't match = 0 without COALESCE()\n"
+                        
+                        retry_prompt = f"{user_prompt}\n\nIMPORTANT CORRECTION: The previous SQL had validation errors: {validation_error}{enhanced_correction}\n\nPlease regenerate the SQL with ALL corrections applied. Make sure to:\n1. Use LOWER() for ALL text column comparisons\n2. Use COALESCE() for ALL numeric comparisons with zero"
                         sql = await asyncio.wait_for(
                             loop.run_in_executor(
                                 None,
@@ -474,13 +510,26 @@ Rules:
 - Use only tables and columns from the semantic layer provided
 - Ensure queries are read-only (SELECT only, no INSERT/UPDATE/DELETE)
 - Use proper SQL syntax
-- Add LIMIT clause if not present
+- Add LIMIT clause if not present (unless using aggregation - see below)
 - CRITICAL: Do NOT include semicolon (;) in your SQL - LIMIT should come directly after ORDER BY
 - Example CORRECT: SELECT ... ORDER BY column DESC LIMIT 5
 - Example WRONG: SELECT ... ORDER BY column DESC; LIMIT 5
 - CRITICAL: NEVER use bind parameters ($1, $2, :param, ?) - use literal values or omit filters if values not provided
 - Example WRONG: WHERE company_code = :companyCode
 - Example CORRECT: WHERE company_code = '03' (use actual value) or omit the filter if value not provided
+
+CRITICAL: WHEN TO USE AGGREGATION (SUM, AVG, COUNT):
+- If user asks for "value of", "total value", "sum of", "total", "aggregate", "combined", "overall" → use SUM() aggregation
+- If user asks for "average", "avg", "mean" → use AVG() aggregation
+- If user asks for "count", "number of", "how many" → use COUNT() aggregation
+- When using aggregation, DO NOT use LIMIT 1 - aggregation returns a single row automatically
+- Example: "value of stock over 4 years" → SELECT SUM(stgw_valabv_4y) as total_value FROM ... (NO LIMIT)
+- Example: "total sales" → SELECT SUM(sales) as total_sales FROM ... (NO LIMIT)
+- Example: "average stock level" → SELECT AVG(stock_level) as avg_stock FROM ... (NO LIMIT)
+- WRONG: SELECT stgw_valabv_4y FROM ... LIMIT 1 (returns single row, may be NULL)
+- CORRECT: SELECT SUM(stgw_valabv_4y) as total_value FROM ... (returns sum of all rows)
+- If user asks for a list of items → use SELECT without aggregation, with LIMIT
+- If user asks for a total/sum/value → use SELECT SUM() without LIMIT
 
 CRITICAL: TABLE SELECTION - STRICT ENFORCEMENT:
 - You MUST select the correct table based on the question. DO NOT guess or use the wrong table.
@@ -560,27 +609,32 @@ CRITICAL: PRIORITIZE NAME COLUMNS OVER CODE COLUMNS:
 
 CRITICAL: USE NAME COLUMNS FOR TEXT FILTERS (MOST IMPORTANT FOR WHERE CLAUSES):
 - When filtering by text values (names, not numeric codes), ALWAYS use name columns, NOT code columns
+- CRITICAL: Use LOWER() function for case-insensitive matching on text columns (company_name, branch_name, item_name, etc.)
+- Database values may have different cases (e.g., "Mumbai" vs "mumbai"), so always use LOWER() for text comparisons
 - If the filter value contains text/spaces (like "Shree NM Bangalore", "Delton", "Mumbai", "Shree NM"), it's a NAME → use name column
 - If the filter value is purely numeric (like "06", "51488", "123"), it's a CODE → use code column
 - Example WRONG: WHERE spd_branch_code = 'Shree NM Bangalore' (spd_branch_code is INTEGER, can't match text - causes error)
-- Example CORRECT: WHERE branch_name = 'Shree NM Bangalore' (branch_name is VARCHAR, matches text)
+- Example WRONG: WHERE branch_name = 'Mumbai' (case-sensitive, may not match "Mumbai" in database)
+- Example CORRECT: WHERE LOWER(branch_name) = LOWER('Mumbai') (case-insensitive, matches "Mumbai" or "mumbai")
+- Example WRONG: WHERE company_name LIKE '%shree nm%' (case-sensitive, may not match "Shree NM Electricals Ltd")
+- Example CORRECT: WHERE LOWER(company_name) LIKE LOWER('%shree nm%') (case-insensitive, matches any case)
 - Example WRONG: WHERE spd_company_code = 'Delton' (spd_company_code is INTEGER, can't match text - causes error)
-- Example CORRECT: WHERE company_name = 'Delton' (company_name is VARCHAR, matches text)
-- Example WRONG: WHERE spd_branch_code = 'Shree NM' (spd_branch_code is INTEGER, can't match text - causes error)
-- Example CORRECT: WHERE branch_name = 'Shree NM' (branch_name is VARCHAR, matches text)
-- Example WRONG: WHERE spd_branch_code = 'Mumbai' (spd_branch_code is INTEGER, can't match text - causes error)
-- Example CORRECT: WHERE branch_name = 'Mumbai' (branch_name is VARCHAR, matches text)
+- Example CORRECT: WHERE LOWER(company_name) = LOWER('Delton') (company_name is VARCHAR, case-insensitive matching)
 - Example CORRECT: WHERE spd_branch_code = 06 (numeric code, use code column)
 - Example CORRECT: WHERE gws_handled_by = '51488' (VARCHAR code column, use quotes for text)
-- RULE: If filter value looks like a name (text with spaces, letters, not just digits) → use name column
+- RULE: If filter value looks like a name (text with spaces, letters, not just digits) → use name column with LOWER()
 - RULE: If filter value is purely numeric → use code column (but check if code column is VARCHAR or INTEGER)
-- RULE: Check semantic layer to see if name column exists - if it does and value is text, use name column
-- RULE: When user says "in [Company Name]" or "in [Branch Name]" or "[Location Name] branch" → use name column, NOT code column
-- RULE: Common patterns that require name columns: "in Shree NM", "in Delton", "Mumbai branch", "Bangalore branch", "Shree NM Bangalore"
-- RULE: For compound location names like "Shree NM, Mumbai branch" or "Shree NM Mumbai", treat the ENTIRE phrase as ONE branch name
-- RULE: Do NOT split compound location names into multiple filters - use the complete name as a single filter value
-- Example: "Shree NM, Mumbai branch" → WHERE branch_name = 'Shree NM, Mumbai' (single filter, not two)
-- Example: "Shree NM Mumbai" → WHERE branch_name = 'Shree NM Mumbai' (single filter)
+- RULE: Check semantic layer to see if name column exists - if it does and value is text, use name column with LOWER()
+- RULE: When user says "in [Company Name]" or "in [Branch Name]" or "[Location Name] branch" → use name column with LOWER(), NOT code column
+- RULE: Common patterns that require name columns with LOWER(): "in Shree NM", "in Delton", "Mumbai branch", "Bangalore branch", "Shree NM Bangalore"
+- RULE: For compound location names like "Shree NM Mumbai branch" or "in Shree NM Mumbai":
+  * If the question contains EXTRACTED ENTITIES hints, use them as separate filters
+  * Example: If extracted entities show "Company: Shree NM" and "Branch: Mumbai" → use company_name LIKE '%Shree NM%' AND branch_name = 'Mumbai'
+  * If no entities extracted, check if location part matches a known city (Mumbai, Bangalore, Chennai, etc.)
+  * If location is a known city → split into company_name and branch_name filters
+  * If location is NOT a known city (e.g., "Electricals", "Ltd") → treat entire phrase as company_name
+- Example: "Shree NM Mumbai branch" → company_name LIKE '%Shree NM%' AND branch_name = 'Mumbai'
+- Example: "Shree NM Electricals Ltd" → company_name LIKE '%Shree NM Electricals Ltd%' (no branch filter)
 - RULE: For category filters, extract ONLY the category value, NOT the word "category"
 - Example: User says "Z category" → Use WHERE spd_ica_category = 'Z' (NOT 'Z category')
 - Example: User says "category Z" → Use WHERE spd_ica_category = 'Z' (NOT 'category Z')
@@ -617,17 +671,21 @@ CRITICAL: COALESCE TYPE MATCHING:
 
 CRITICAL: COALESCE IN WHERE CLAUSES - NULL HANDLING:
 - When filtering on numeric columns that might be NULL, ALWAYS use COALESCE in WHERE clauses
-- If user asks for "zero", "is zero", "equals zero", "is null or zero", treat NULL as 0 using COALESCE
+- If user asks for "zero", "is zero", "equals zero", "is null or zero", "no sales", "no stock", treat NULL as 0 using COALESCE
 - Example: User says "stock level is zero" → Use: WHERE COALESCE(stock_level, 0) = 0
 - Example: User says "pending stock is greater than 0" → Use: WHERE COALESCE(pending_stock, 0) > 0
 - Example: User says "no stock" or "zero stock" → Use: WHERE COALESCE(stock_level, 0) = 0
+- Example: User says "no sales in last 90 days" → Use: WHERE COALESCE(sale90, 0) = 0 (NOT sale90 = 0)
+- Example: User says "items with no sales" → Use: WHERE COALESCE(sale_value, 0) = 0
 - WRONG: WHERE stock_level = 0 (excludes NULL rows - they won't match = 0)
 - CORRECT: WHERE COALESCE(stock_level, 0) = 0 (includes NULL rows as 0)
+- WRONG: WHERE sale90 = 0 (excludes NULL rows - they won't match = 0, missing 1535 NULL rows)
+- CORRECT: WHERE COALESCE(sale90, 0) = 0 (includes NULL rows as 0)
 - WRONG: WHERE pending_stock > 0 (excludes NULL rows)
 - CORRECT: WHERE COALESCE(pending_stock, 0) > 0 (includes NULL rows as 0, but > 0 excludes them)
 - When comparing with zero (0), NULL values don't match, so use COALESCE to treat NULL as 0
 - When comparing with > 0 or < 0, use COALESCE to ensure NULL is treated as 0 (so > 0 excludes NULL, < 0 excludes NULL)
-- Key phrases that require COALESCE: "is zero", "equals zero", "is null or zero", "no stock", "zero stock", "empty stock"
+- Key phrases that require COALESCE: "is zero", "equals zero", "is null or zero", "no stock", "zero stock", "empty stock", "no sales", "zero sales", "no sales in last 90 days", "items with no sales", "no sales", "zero sales", "no sales in last 90 days"
 
 CRITICAL: TABLE JOINS:
 - ONLY join tables that exist in the semantic layer
@@ -648,6 +706,7 @@ CRITICAL: POSTGRESQL ROUND FUNCTION:
         question: str,
         semantic_layer: SemanticLayer,
         detected_table: Optional[str] = None,
+        extracted_entities: Optional[Dict[str, any]] = None,
     ) -> str:
         """
         Build the user prompt for AI.
@@ -677,11 +736,65 @@ Based on the question, you MUST use the table: {detected_table}
 - If the question asks for data that doesn't exist in {detected_table}, inform the user or use available columns
 """
         
+        # Add extracted entities hints if available (table-aware)
+        entity_hints = ""
+        if extracted_entities:
+            hints = []
+            table = semantic_layer.get_table(detected_table) if detected_table else None
+            
+            # Company name - available in all tables
+            if extracted_entities.get("company_name"):
+                if table and table.has_column("company_name"):
+                    # Use LOWER() for case-insensitive matching
+                    hints.append(f"Company: {extracted_entities['company_name']} (use LOWER(company_name) LIKE LOWER('%{extracted_entities['company_name']}%') for case-insensitive matching)")
+                elif detected_table == "public.gwanalytics":
+                    # gwanalytics doesn't have company_name, use gws_company_code or company_name if it exists
+                    hints.append(f"Company: {extracted_entities['company_name']} (use company_name if exists, or gws_company_code with appropriate filter)")
+            
+            # Branch name - NOT available in gwanalytics
+            if extracted_entities.get("branch_name"):
+                if table and table.has_column("branch_name"):
+                    # Use LOWER() for case-insensitive matching
+                    hints.append(f"Branch: {extracted_entities['branch_name']} (use LOWER(branch_name) = LOWER('{extracted_entities['branch_name']}') for case-insensitive matching)")
+                elif detected_table == "public.gwanalytics":
+                    # gwanalytics doesn't have branch_name - skip this hint
+                    logger.warning(f"Branch '{extracted_entities['branch_name']}' extracted but gwanalytics table doesn't have branch_name column")
+                else:
+                    # Table not detected yet, but branch was extracted - provide generic hint
+                    hints.append(f"Branch: {extracted_entities['branch_name']} (use LOWER(branch_name) = LOWER('{extracted_entities['branch_name']}') if table has branch_name column)")
+            
+            # Make/Brand - only available in stock_gw and stock_planning_data
+            if extracted_entities.get("make"):
+                if detected_table == "public.stock_gw":
+                    hints.append(f"Make/Brand: {extracted_entities['make']} (use stgw_make = '{extracted_entities['make']}')")
+                elif detected_table == "public.stock_planning_data":
+                    hints.append(f"Make/Brand: {extracted_entities['make']} (use spd_make = '{extracted_entities['make']}')")
+                elif detected_table == "public.gwanalytics":
+                    # gwanalytics doesn't have make column - skip this hint
+                    logger.warning(f"Make '{extracted_entities['make']}' extracted but gwanalytics table doesn't have make column")
+                else:
+                    # Table not detected yet, but make was extracted - provide generic hint
+                    hints.append(f"Make/Brand: {extracted_entities['make']} (use make column if table has it - stgw_make for stock_gw, spd_make for stock_planning_data)")
+            
+            if hints:
+                entity_hints = f"""
+
+EXTRACTED ENTITIES (USE THESE IN YOUR SQL - ONLY IF TABLE HAS THESE COLUMNS):
+{chr(10).join(f"- {hint}" for hint in hints)}
+- When both company and branch are extracted, use BOTH filters with LOWER() for case-insensitive matching
+- CRITICAL: ALWAYS use LOWER() function for text column comparisons (company_name, branch_name) to handle case differences
+- CRITICAL: ALWAYS use COALESCE() for numeric comparisons with zero (sale90, stock_level, etc.) to include NULL values
+- Example: LOWER(company_name) LIKE LOWER('%[company]%') AND LOWER(branch_name) = LOWER('[branch]')
+- Example: COALESCE(sale90, 0) = 0 (NOT sale90 = 0)
+- Do NOT combine them into a single branch_name filter
+- IMPORTANT: Only use these filters if the selected table has the corresponding columns (check semantic layer above)
+"""
+        
         return f"""Semantic Layer:
 {semantic_json}
 
 User Question: {question}
-{table_enforcement}
+{table_enforcement}{entity_hints}
 Generate a SQL query that answers the user's question using only the tables and columns defined in the semantic layer above."""
     
     def _get_table_prefix(self, table_key: str) -> str:
@@ -838,6 +951,85 @@ Generate a SQL query that answers the user's question using only the tables and 
                         f"Use '{name_col}' instead for text values. "
                         f"Example: WHERE {name_col} = '{value}' instead of WHERE {code_col} = '{value}'"
                     )
+    
+    def _validate_case_and_null_handling(self, sql: str, table_key: str, extracted_entities: Optional[Dict[str, any]]) -> None:
+        """
+        Validate that text columns use LOWER() for case-insensitive matching
+        and numeric comparisons with zero use COALESCE() for NULL handling.
+        
+        Raises:
+            SQLGenerationError: If LOWER() or COALESCE() are missing where needed
+        """
+        import re
+        sql_lower = sql.lower()
+        issues = []
+        
+        # Check for text column comparisons without LOWER()
+        text_columns = ['company_name', 'branch_name', 'item_name', 'cust_name', 'handled_name']
+        for col in text_columns:
+            # Pattern: column = 'value' or column LIKE '%value%' without LOWER()
+            # But exclude if LOWER() is already used
+            pattern_without_lower = rf'\b{re.escape(col)}\s*(?:=|like)\s*[\'"]([^\'"]+)[\'"]'
+            if re.search(pattern_without_lower, sql, re.IGNORECASE):
+                # Check if LOWER() is used
+                if f'lower({col})' not in sql_lower:
+                    issues.append(f"Column '{col}' is used without LOWER() function. Use LOWER({col}) for case-insensitive matching.")
+        
+        # Check for numeric comparisons with zero without COALESCE (for sale90, stock_level, etc.)
+        # Only check if extracted entities suggest "no sales" or similar
+        if extracted_entities:
+            # Check for sale90, sale_90, or similar columns
+            sale_pattern = r'\b(stgw_sale90|sale90|sale_90)\s*=\s*0\b'
+            if re.search(sale_pattern, sql, re.IGNORECASE):
+                # Check if COALESCE is used
+                if 'coalesce' not in sql_lower or 'coalesce(stgw_sale90' not in sql_lower:
+                    issues.append("Column 'stgw_sale90' is compared with 0 without COALESCE(). Use COALESCE(stgw_sale90, 0) = 0 to include NULL values.")
+        
+        if issues:
+            raise SQLGenerationError(
+                "SQL generation issues detected:\n" + "\n".join(f"- {issue}" for issue in issues) +
+                "\n\nCRITICAL FIXES REQUIRED:\n" +
+                "- For text columns (company_name, branch_name), ALWAYS use LOWER() function: LOWER(column) = LOWER('value')\n" +
+                "- For numeric comparisons with zero (sale90, stock_level), ALWAYS use COALESCE(): COALESCE(column, 0) = 0"
+            )
+    
+    def _validate_extracted_entities(self, sql: str, table_key: str, extracted_entities: Dict[str, any]) -> None:
+        """
+        Validate that extracted entities (company, branch, make) are used correctly in SQL.
+        
+        This is a warning-only validation - we log warnings but don't raise errors
+        because the AI might have valid reasons to omit certain filters.
+        
+        Args:
+            sql: Generated SQL query
+            table_key: Selected table
+            extracted_entities: Entities extracted by preprocessor
+        """
+        import re
+        sql_lower = sql.lower()
+        
+        # Check if company_name was extracted but not used
+        if extracted_entities.get("company_name"):
+            company = extracted_entities["company_name"]
+            # Check if company filter is present (either company_name or company code)
+            company_pattern = r'(company_name|gws_company_code|spd_company_code|stgw_company_code)'
+            if not re.search(company_pattern, sql_lower):
+                logger.warning(f"Company '{company}' was extracted but not used in SQL")
+        
+        # Check if branch_name was extracted but not used
+        if extracted_entities.get("branch_name"):
+            branch = extracted_entities["branch_name"]
+            # Check if branch filter is present
+            branch_pattern = r'(branch_name|gws_branch_code|spd_branch_code|stgw_branch_code)'
+            if not re.search(branch_pattern, sql_lower):
+                logger.warning(f"Branch '{branch}' was extracted but not used in SQL")
+        
+        # Check if make was extracted but not used (for stock_gw table)
+        if extracted_entities.get("make") and table_key == "public.stock_gw":
+            make = extracted_entities["make"]
+            # Check if make filter is present
+            if "stgw_make" not in sql_lower:
+                logger.warning(f"Make '{make}' was extracted but not used in SQL")
     
     def _validate_single_statement(self, sql: str) -> None:
         """
