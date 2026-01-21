@@ -211,3 +211,5 @@ Train a model to extract entities instead of rule-based patterns:
 
 This architecture is more maintainable, scalable, and cost-effective than constantly expanding system prompts.
 
+
+
