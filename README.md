@@ -266,3 +266,12 @@ Ambiguous queries: "sales by location" (location doesn't exist in sales table)
 Similar concepts: both tables have "company_code"
 Generic terms: "amount", "code", "date" exist in multiple tables
 No hard validation: relies on AI following instructions
+
+
+"Top 10 items by sales value from stock gateway"
+Category: item_name
+Value: stgw_sale_value
+"Top 10 companies by total profit from stock gateway"
+Category: company_name
+Value: stgw_profit_loss
+"Top 15 makes by total stock value from stock gateway"

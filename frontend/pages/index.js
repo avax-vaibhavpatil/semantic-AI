@@ -47,7 +47,7 @@ import {
   Save as SaveIcon,
   Menu as MenuIcon,
 } from "@mui/icons-material";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from "recharts";
 
 export default function Home() {
   // User ID - in production, get from auth system
@@ -77,6 +77,7 @@ export default function Home() {
   const [valueColumn, setValueColumn] = useState("");
   const [aggregation, setAggregation] = useState("SUM");
   const [topN, setTopN] = useState(10);
+  const [chartType, setChartType] = useState("pie");
   const chartRef = useRef(null);
 
   const COLORS = [
@@ -704,6 +705,20 @@ export default function Home() {
             <Grid container spacing={3}>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
+                  <InputLabel>Chart Type</InputLabel>
+                  <Select
+                    value={chartType}
+                    label="Chart Type"
+                    onChange={(e) => setChartType(e.target.value)}
+                  >
+                    <MenuItem value="pie">Pie</MenuItem>
+                    <MenuItem value="bar">Bar (Top N)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
                   <InputLabel>Category Column (for slices)</InputLabel>
                   <Select
                     value={categoryColumn}
@@ -770,27 +785,44 @@ export default function Home() {
             {categoryColumn && valueColumn && (
               <Box ref={chartRef} sx={{ mt: 4, p: 3, bgcolor: "white" }}>
                 <Typography variant="h6" align="center" gutterBottom>
-                  {aggregation} of {valueColumn} by {categoryColumn}
+                  {aggregation} of {valueColumn} by {categoryColumn} ({chartType === "pie" ? "Pie" : "Bar"})
                 </Typography>
-                <ResponsiveContainer width="100%" height={400}>
-                  <PieChart>
-                    <Pie
+                <ResponsiveContainer width="100%" height={420}>
+                  {chartType === "pie" ? (
+                    <PieChart>
+                      <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percentage }) => `${name}: ${percentage}%`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {chartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                      <Legend />
+                    </PieChart>
+                  ) : (
+                    <BarChart
                       data={chartData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percentage }) => `${name}: ${percentage}%`}
-                      outerRadius={120}
-                      fill="#8884d8"
-                      dataKey="value"
+                      layout="vertical"
+                      margin={{ top: 20, right: 40, left: 80, bottom: 20 }}
                     >
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                  </PieChart>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis dataKey="name" type="category" width={160} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="value" fill="#667eea" radius={[0, 6, 6, 0]}>
+                        <LabelList dataKey="value" position="right" formatter={(v) => v.toLocaleString()} />
+                      </Bar>
+                    </BarChart>
+                  )}
                 </ResponsiveContainer>
               </Box>
             )}
