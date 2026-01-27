@@ -14,6 +14,7 @@ Welcome to the Auto Semantic Project documentation! This index helps you find th
 | Document | Purpose | When to Read |
 |----------|---------|--------------|
 | [SEMANTIC_LAYER_GUIDE.md](SEMANTIC_LAYER_GUIDE.md) | Learn how to create and customize semantic layers | Setting up your data model |
+| [COMPLETE_WORKFLOW_DOCUMENTATION.md](COMPLETE_WORKFLOW_DOCUMENTATION.md) | **Complete workflow from user perspective** | Understanding how the system works end-to-end |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Guidelines for contributing code | Want to contribute |
 
 ## 📋 Quick Reference
@@ -81,6 +82,16 @@ Welcome to the Auto Semantic Project documentation! This index helps you find th
 - Best practices
 - Auto-generation from DBT
 
+### Complete Workflow Documentation
+**File:** [COMPLETE_WORKFLOW_DOCUMENTATION.md](COMPLETE_WORKFLOW_DOCUMENTATION.md)
+- **Complete user perspective workflow**
+- Step-by-step process from question to results
+- Detailed technical architecture
+- Data flow diagrams
+- Report management workflow
+- Visualization workflow
+- Component details
+
 ### Contributing Guide
 **File:** [CONTRIBUTING.md](CONTRIBUTING.md)
 - Development setup
@@ -97,6 +108,7 @@ Welcome to the Auto Semantic Project documentation! This index helps you find th
 → Read [QUICKSTART.md](QUICKSTART.md)
 
 **...understand how it works**
+→ Read [COMPLETE_WORKFLOW_DOCUMENTATION.md](COMPLETE_WORKFLOW_DOCUMENTATION.md) for detailed workflow
 → Read [README.md](README.md) Architecture section
 
 **...set up my database schema**
@@ -149,7 +161,7 @@ This documentation was created to help you understand and use the Auto Semantic 
 
 ---
 
-**Start here:** [QUICKSTART.md](QUICKSTART.md) → [README.md](README.md) → [SEMANTIC_LAYER_GUIDE.md](SEMANTIC_LAYER_GUIDE.md)
+**Start here:** [QUICKSTART.md](QUICKSTART.md) → [README.md](README.md) → [COMPLETE_WORKFLOW_DOCUMENTATION.md](COMPLETE_WORKFLOW_DOCUMENTATION.md) → [SEMANTIC_LAYER_GUIDE.md](SEMANTIC_LAYER_GUIDE.md)
 
 
 
